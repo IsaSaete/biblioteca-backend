@@ -1,0 +1,41 @@
+name: Code Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    name: Code audit
+
+    steps:
+      - name: ⬇ Git checkout
+        uses: actions/checkout@v4
+
+      - name: ❓ Check if .editorconfig exists
+        uses: andstor/file-existence-action@v3
+        with:
+          files: ".editorconfig"
+          fail: true
+
+      - name: 🙈 Ensure node_modules is ignored by Git
+        uses: dkershner6/gitignore-parser@v2
+        with:
+          must_deny: "node_modules"
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 💾 Install modules
+        run: npm ci
+
+      - name: 🔍 ESLint validation
+        run: npx eslint . --max-warnings 0
+
+      - name: 🏗️ Build
+        run: npm run build
