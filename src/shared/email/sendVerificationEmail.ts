@@ -23,9 +23,9 @@ const sendVerificationEmail = async (
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
     to,
-    subject: "Confirma tu email — Biblioteca Personal",
+    subject: "Confirma tu email — Glosa",
     html: `
-      <p>¡Bienvenida a Biblioteca Personal!</p>
+      <p>¡Bienvenida a Glosa, tu biblioteca personal!</p>
       <p>Confirma tu email haciendo clic en el siguiente enlace:</p>
       <p><a href="${verificationUrl}">${verificationUrl}</a></p>
     `,
