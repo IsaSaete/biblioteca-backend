@@ -1,6 +1,15 @@
 import "dotenv/config";
+import config from "./config/index.js";
+import connectToDatabase from "./database/connectToDatabase.js";
+import logger from "./utils/logger.js";
 import startServer from "./server/startServer.js";
 
-const port = process.env.PORT || 4000;
+const main = async (): Promise<void> => {
+  await connectToDatabase();
+  startServer(config.port);
+};
 
-startServer(Number(port));
+main().catch((error: unknown) => {
+  logger.error(error, "Failed to start the server");
+  process.exit(1);
+});
