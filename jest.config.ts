@@ -16,6 +16,7 @@ const config: Config = {
     ],
   },
   testMatch: ["**/__tests__/**/*.test.ts"],
+  setupFiles: ["<rootDir>/jest-mongodb-config.cjs"],
 };
 
 export default config;
