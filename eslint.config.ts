@@ -4,10 +4,11 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default defineConfig([
+  { ignores: ["dist/**", "coverage/**"] },
   { files: ["**/*.{js,mjs,cjs,ts}"] },
   {
     files: ["**/*.{js,mjs,cjs,ts}"],
-    languageOptions: { globals: globals.browser },
+    languageOptions: { globals: { ...globals.node, ...globals.jest } },
   },
   {
     files: ["**/*.{js,mjs,cjs,ts}"],

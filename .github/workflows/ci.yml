@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    name: Lint, typecheck, test and build
+
+    steps:
+      - name: ⬇ Git checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 💾 Install modules
+        run: npm ci
+
+      - name: 🔍 Lint
+        run: npm run lint
+
+      - name: 🔎 Typecheck
+        run: npm run typecheck
+
+      - name: 🧪 Test
+        run: npm run test
+        env:
+          NODE_ENV: test
+          PORT: "4000"
+          MONGODB_URI: "mongodb://127.0.0.1:27017/test"
+          FRONTEND_URL: "http://localhost:5173"
+          ACCESS_TOKEN_SECRET: "test-access-token-secret"
+          REFRESH_TOKEN_SECRET: "test-refresh-token-secret"
+          RESEND: "test-resend-key"
+
+      - name: 🏗️ Build
+        run: npm run build
