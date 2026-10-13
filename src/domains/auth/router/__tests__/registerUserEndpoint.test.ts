@@ -52,9 +52,10 @@ describe("POST /auth/register", () => {
     });
     expect(response.body.user.passwordHash).toBeUndefined();
 
-    const cookieNames = (
-      response.headers["set-cookie"] as unknown as string[]
-    ).map((cookie) => cookie.split("=")[0]);
+    const setCookieHeader = response.get("Set-Cookie");
+    expect(setCookieHeader).toBeDefined();
+
+    const cookieNames = setCookieHeader?.map((cookie) => cookie.split("=")[0]);
     expect(cookieNames).toEqual(
       expect.arrayContaining(["accessToken", "refreshToken", "csrfToken"]),
     );
