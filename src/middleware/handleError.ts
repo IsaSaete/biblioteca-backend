@@ -7,8 +7,7 @@ const handleError = (
   req: Request,
   res: Response,
   // Express solo reconoce un middleware como manejador de errores si recibe 4 parámetros.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  next: NextFunction,
+  _next: NextFunction,
 ): void => {
   if (error instanceof AppError) {
     res.status(error.httpStatus).json({

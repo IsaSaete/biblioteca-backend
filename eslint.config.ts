@@ -21,4 +21,15 @@ export default defineConfig([
   },
 
   tseslint.configs.recommended,
+  {
+    files: ["**/*.{js,mjs,cjs,ts}"],
+    rules: {
+      // Permite nombrar explícitamente como descartada una variable
+      // destructurada que no se usa (ej. separar un campo de un objeto).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { varsIgnorePattern: "^_", argsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ]);
