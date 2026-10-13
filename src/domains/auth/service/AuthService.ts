@@ -49,6 +49,27 @@ const registerUser = async (body: unknown): Promise<RegisterUserResult> => {
   return { user: mapUserDocumentToDto(user) };
 };
 
-const AuthService = { registerUser };
+const verifyEmail = async (token: string): Promise<void> => {
+  const emailVerificationTokenHash = hashToken(token);
+
+  const user = await User.findOne({
+    emailVerificationTokenHash,
+    emailVerificationTokenExpiresAt: { $gt: new Date() },
+  });
+
+  if (!user) {
+    throw new ValidationError(
+      "AUTH_INVALID_TOKEN",
+      "El enlace de verificación no es válido o ha caducado",
+    );
+  }
+
+  user.emailVerified = true;
+  user.emailVerificationTokenHash = undefined;
+  user.emailVerificationTokenExpiresAt = undefined;
+  await user.save();
+};
+
+const AuthService = { registerUser, verifyEmail };
 
 export default AuthService;
