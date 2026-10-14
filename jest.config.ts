@@ -2,6 +2,7 @@ import type { Config } from "jest";
 
 const config: Config = {
   preset: "ts-jest/presets/default-esm",
+  verbose: true,
   testEnvironment: "node",
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
@@ -16,7 +17,22 @@ const config: Config = {
     ],
   },
   testMatch: ["**/__tests__/**/*.test.ts"],
-  setupFiles: ["<rootDir>/jest-mongodb-config.cjs"],
+  setupFiles: [
+    "<rootDir>/jest-mongodb-config.cjs",
+    "<rootDir>/jest.setup-env.cjs",
+  ],
+  coverageDirectory: "coverage",
+  collectCoverageFrom: [
+    "src/**/*.ts",
+    "!src/**/*.d.ts",
+    "!src/index.ts",
+    "!src/server/startServer.ts",
+    "!src/middleware/handleCors.ts",
+    "!src/**/types.ts",
+    "!src/database/connectToDatabase.ts",
+    "!src/**/fixtures/**/*.ts",
+    "!src/test/**/*.ts",
+  ],
 };
 
 export default config;

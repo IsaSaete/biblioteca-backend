@@ -67,6 +67,7 @@ const verifyEmail = async (token: string): Promise<void> => {
   user.emailVerified = true;
   user.emailVerificationTokenHash = undefined;
   user.emailVerificationTokenExpiresAt = undefined;
+
   await user.save();
 };
 

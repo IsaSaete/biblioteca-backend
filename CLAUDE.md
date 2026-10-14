@@ -27,15 +27,16 @@ Node.js + Express + TypeScript · MongoDB (Mongoose). Librerías complementarias
 
 Todos están en `../biblioteca-docs/`. Lee según lo que vayas a hacer — no leas un fichero entero si solo necesitas una parte.
 
-| Cuando vas a…                                                                                             | Lee                                                                                          |
-| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Crear o cambiar un modelo, DTO, validador o tipo                                                          | `modelo-de-datos.md`                                                                         |
-| Crear o cambiar un endpoint (respuesta, errores, sesión)                                                  | `api-contract.md` (contrato compartido con el frontend)                                      |
-| Decidir estructura de carpetas, capas, middleware, índices de Mongo, rate limiting o variables de entorno | `arquitectura-tecnica.md`                                                                    |
-| Escribir un test, un commit o una rama, nombrar un archivo o dar formato a un error                       | `normas-desarrollo.md`                                                                       |
-| Saber qué construir en el sprint y sus criterios de aceptación                                            | Solo la historia HU-xx en `backlog-historias-usuario.md`                                     |
-| Entender por qué existe algo a nivel de producto                                                          | `product-brief-biblioteca-personal.md`                                                       |
-| Nunca por defecto                                                                                         | `historico/auditoria-pre-desarrollo.md` — decisiones ya resueltas; no reabrir lo cerrado ahí |
+| Cuando vas a…                                                                                             | Lee                                                                                                 |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Crear o cambiar un modelo, DTO, validador o tipo                                                          | `modelo-de-datos.md`                                                                                |
+| Crear o cambiar un endpoint (respuesta, errores, sesión)                                                  | `api-contract.md` (contrato compartido con el frontend)                                             |
+| Decidir estructura de carpetas, capas, middleware, índices de Mongo, rate limiting o variables de entorno | `arquitectura-tecnica.md`                                                                           |
+| Escribir un test, un commit o una rama, nombrar un archivo o dar formato a un error                       | `normas-desarrollo.md`                                                                              |
+| Saber qué construir en el sprint y sus criterios de aceptación                                            | Solo la historia HU-xx en `backlog-historias-usuario.md`                                            |
+| Entender por qué existe algo a nivel de producto                                                          | `product-brief-biblioteca-personal.md`                                                              |
+| Cerrar una historia o tomar una decisión de desarrollo                                                    | Añadir entrada en `bitacora/progreso.md` y, si hay alternativas reales, en `bitacora/decisiones.md` |
+| Nunca por defecto                                                                                         | `historico/auditoria-pre-desarrollo.md` — decisiones ya resueltas; no reabrir lo cerrado ahí        |
 
 ## Reglas que debe respetar (no negociables)
 
