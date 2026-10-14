@@ -31,6 +31,12 @@ jobs:
       - name: 💾 Install modules
         run: npm ci
 
+      - name: 🍃 Cache MongoDB binary for in-memory tests
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/mongodb-memory-server
+          key: mongodb-memory-server-${{ runner.os }}-6.0.14
+
       - name: 🔍 Lint
         run: npm run lint
 

@@ -3,6 +3,8 @@ import type { Config } from "jest";
 const config: Config = {
   preset: "ts-jest/presets/default-esm",
   verbose: true,
+  // La primera ejecución sin caché descarga el binario de MongoDB en memoria.
+  testTimeout: 60000,
   testEnvironment: "node",
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
