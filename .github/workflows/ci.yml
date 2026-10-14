@@ -1,8 +1,6 @@
 name: CI
 
-on:
-  pull_request:
-    branches: [main]
+on: push
 
 jobs:
   ci:
@@ -13,6 +11,17 @@ jobs:
       - name: ⬇ Git checkout
         uses: actions/checkout@v4
 
+      - name: ❓ Check if .editorconfig exists
+        uses: andstor/file-existence-action@v3
+        with:
+          files: ".editorconfig"
+          fail: true
+
+      - name: 🙈 Ensure node_modules is ignored by Git
+        uses: dkershner6/gitignore-parser@v2
+        with:
+          must_deny: "node_modules"
+
       - name: 🟢 Setup Node
         uses: actions/setup-node@v4
         with:
@@ -21,6 +30,12 @@ jobs:
 
       - name: 💾 Install modules
         run: npm ci
+
+      - name: 🍃 Cache MongoDB binary for in-memory tests
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/mongodb-memory-server
+          key: mongodb-memory-server-${{ runner.os }}-6.0.14
 
       - name: 🔍 Lint
         run: npm run lint
