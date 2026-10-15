@@ -38,58 +38,61 @@ const getLastSentVerificationToken = (): string => {
   return token;
 };
 
-describe("AuthService.verifyEmail", () => {
-  it("Given un token de verificación válido, when se verifica el email, then emailVerified pasa a true y el token queda invalidado", async () => {
-    // Arrange
-    const dto = buildRegisterDto();
-    const { user } = await AuthService.registerUser(dto);
-    const token = getLastSentVerificationToken();
+describe("Given the AuthService.verifyEmail function", () => {
+  describe("When it receives a valid verification token", () => {
+    it("Then it should set emailVerified to true and invalidate the token", async () => {
+      const dto = buildRegisterDto();
+      const { user } = await AuthService.registerUser(dto);
+      const token = getLastSentVerificationToken();
 
-    // Act
-    await AuthService.verifyEmail(token);
+      await AuthService.verifyEmail(token);
 
-    // Assert
-    const storedUser = await User.findById(user.id);
-    expect(storedUser?.emailVerified).toBe(true);
-    expect(storedUser?.emailVerificationTokenHash).toBeUndefined();
-    expect(storedUser?.emailVerificationTokenExpiresAt).toBeUndefined();
-  });
-
-  it("Given un token ya usado, when se intenta verificar de nuevo, then falla con AUTH_INVALID_TOKEN", async () => {
-    // Arrange
-    const dto = buildRegisterDto();
-    await AuthService.registerUser(dto);
-    const token = getLastSentVerificationToken();
-    await AuthService.verifyEmail(token);
-
-    // Act
-    const act = () => AuthService.verifyEmail(token);
-
-    // Assert
-    await expect(act()).rejects.toMatchObject({ code: "AUTH_INVALID_TOKEN" });
-  });
-
-  it("Given un token caducado, when se intenta verificar, then falla con AUTH_INVALID_TOKEN", async () => {
-    // Arrange
-    const dto = buildRegisterDto();
-    const { user } = await AuthService.registerUser(dto);
-    const token = getLastSentVerificationToken();
-    await User.findByIdAndUpdate(user.id, {
-      emailVerificationTokenExpiresAt: new Date(Date.now() - 1000),
+      const storedUser = await User.findById(user.id);
+      expect(storedUser?.emailVerified).toBe(true);
+      expect(storedUser?.emailVerificationTokenHash).toBeUndefined();
+      expect(storedUser?.emailVerificationTokenExpiresAt).toBeUndefined();
     });
-
-    // Act
-    const act = () => AuthService.verifyEmail(token);
-
-    // Assert
-    await expect(act()).rejects.toMatchObject({ code: "AUTH_INVALID_TOKEN" });
   });
 
-  it("Given un token que no existe, when se intenta verificar, then falla con AUTH_INVALID_TOKEN", async () => {
-    // Arrange
-    const act = () => AuthService.verifyEmail("un-token-inventado");
+  describe("When it receives a token that has already been used", () => {
+    it("Then it should fail with AUTH_INVALID_TOKEN", async () => {
+      const dto = buildRegisterDto();
+      await AuthService.registerUser(dto);
+      const token = getLastSentVerificationToken();
+      await AuthService.verifyEmail(token);
 
-    // Act / Assert
-    await expect(act()).rejects.toMatchObject({ code: "AUTH_INVALID_TOKEN" });
+      const act = () => AuthService.verifyEmail(token);
+
+      await expect(act()).rejects.toMatchObject({
+        code: "AUTH_INVALID_TOKEN",
+      });
+    });
+  });
+
+  describe("When it receives an expired token", () => {
+    it("Then it should fail with AUTH_INVALID_TOKEN", async () => {
+      const dto = buildRegisterDto();
+      const { user } = await AuthService.registerUser(dto);
+      const token = getLastSentVerificationToken();
+      await User.findByIdAndUpdate(user.id, {
+        emailVerificationTokenExpiresAt: new Date(Date.now() - 1000),
+      });
+
+      const act = () => AuthService.verifyEmail(token);
+
+      await expect(act()).rejects.toMatchObject({
+        code: "AUTH_INVALID_TOKEN",
+      });
+    });
+  });
+
+  describe("When it receives a token that does not exist", () => {
+    it("Then it should fail with AUTH_INVALID_TOKEN", async () => {
+      const act = () => AuthService.verifyEmail("made-up-token");
+
+      await expect(act()).rejects.toMatchObject({
+        code: "AUTH_INVALID_TOKEN",
+      });
+    });
   });
 });

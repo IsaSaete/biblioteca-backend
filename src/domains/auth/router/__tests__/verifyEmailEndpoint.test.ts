@@ -38,35 +38,34 @@ const getLastSentVerificationToken = (): string => {
   return token;
 };
 
-describe("GET /auth/verify-email", () => {
-  it("Given un token de verificación válido, when se llama al endpoint, then responde 200", async () => {
-    // Arrange
-    const dto = buildRegisterDto();
-    await request(app).post("/auth/register").send(dto);
-    const token = getLastSentVerificationToken();
+describe("Given the GET /auth/verify-email endpoint", () => {
+  describe("When it receives a valid verification token", () => {
+    it("Then it should respond with status 200", async () => {
+      const dto = buildRegisterDto();
+      await request(app).post("/auth/register").send(dto);
+      const token = getLastSentVerificationToken();
 
-    // Act
-    const response = await request(app).get(
-      `/auth/verify-email?token=${token}`,
-    );
+      const response = await request(app).get(
+        `/auth/verify-email?token=${token}`,
+      );
 
-    // Assert
-    expect(response.status).toBe(200);
+      expect(response.status).toBe(200);
+    });
   });
 
-  it("Given un token inválido, when se llama al endpoint, then responde 400 con AUTH_INVALID_TOKEN", async () => {
-    // Arrange / Act
-    const response = await request(app).get(
-      "/auth/verify-email?token=un-token-inventado",
-    );
+  describe("When it receives an invalid token", () => {
+    it("Then it should respond with status 400 and AUTH_INVALID_TOKEN", async () => {
+      const response = await request(app).get(
+        "/auth/verify-email?token=made-up-token",
+      );
 
-    // Assert
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual({
-      error: {
-        code: "AUTH_INVALID_TOKEN",
-        message: expect.any(String),
-      },
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: {
+          code: "AUTH_INVALID_TOKEN",
+          message: expect.any(String),
+        },
+      });
     });
   });
 });
