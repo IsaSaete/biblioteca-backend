@@ -7,6 +7,7 @@ import handleError from "../middleware/handleError.js";
 import handleEndpointNotFound from "../middleware/handleEndpointNotFound.js";
 import logger from "../utils/logger.js";
 import authRouter from "../domains/auth/router/authRouter.js";
+import checkHealthStatus from "./checkHealthStatus.js";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(pinoHttp({ logger }));
 
+app.get("/", checkHealthStatus);
 app.use("/auth", authRouter);
 
 app.use(handleEndpointNotFound);
