@@ -7,10 +7,12 @@ const envSchema = z.object({
     .default("development"),
   MONGODB_URI: z.string().min(1, "MONGODB_URI es obligatoria"),
   FRONTEND_URL: z.url("FRONTEND_URL debe ser una URL válida"),
-  ACCESS_TOKEN_SECRET: z.string().min(1, "ACCESS_TOKEN_SECRET es obligatoria"),
+  ACCESS_TOKEN_SECRET: z
+    .string()
+    .min(32, "ACCESS_TOKEN_SECRET debe tener al menos 32 caracteres"),
   REFRESH_TOKEN_SECRET: z
     .string()
-    .min(1, "REFRESH_TOKEN_SECRET es obligatoria"),
+    .min(32, "REFRESH_TOKEN_SECRET debe tener al menos 32 caracteres"),
   RESEND: z.string().min(1, "RESEND es obligatoria"),
   GOOGLE_BOOKS_API_KEY: z.string().optional(),
 });
