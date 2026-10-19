@@ -2,6 +2,7 @@ import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { pinoHttp } from "pino-http";
+import config from "../config/index.js";
 import handleCors from "../middleware/handleCors.js";
 import handleError from "../middleware/handleError.js";
 import handleEndpointNotFound from "../middleware/handleEndpointNotFound.js";
@@ -11,9 +12,10 @@ import checkHealthStatus from "./checkHealthStatus.js";
 
 const app = express();
 
-// Render delega en un proxy: sin esto todas las peticiones parecerían venir de
-// la misma IP y el rate limiting bloquearía a todos a la vez.
-app.set("trust proxy", 1);
+// Render (y el proxy del frontend, si lo hay) van delante: sin confiar en el
+// número exacto de saltos, todas las peticiones parecerían venir de la misma IP
+// y el rate limiting bloquearía a todos a la vez.
+app.set("trust proxy", config.trustProxyHops);
 
 app.use(helmet());
 app.use(handleCors);
