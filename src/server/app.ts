@@ -11,6 +11,10 @@ import checkHealthStatus from "./checkHealthStatus.js";
 
 const app = express();
 
+// Render delega en un proxy: sin esto todas las peticiones parecerían venir de
+// la misma IP y el rate limiting bloquearía a todos a la vez.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(handleCors);
 app.use(express.json());
