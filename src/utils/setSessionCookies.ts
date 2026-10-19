@@ -1,52 +1,61 @@
-import type { Response } from "express";
-import {
-  createAccessToken,
-  createCsrfToken,
-  createRefreshToken,
-} from "./tokens.js";
+import type { CookieOptions, Response } from "express";
+import { createCsrfToken } from "./tokens.js";
+import type { SessionTokens } from "../domains/auth/types/types.js";
 
 const ACCESS_TOKEN_MAX_AGE_MS = 15 * 60 * 1000;
 const REFRESH_TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const REFRESH_TOKEN_PATH = "/auth/refresh";
 
-export interface SessionCookiesPayload {
-  userId: string;
+const baseCookieOptions: CookieOptions = {
+  secure: true,
+  sameSite: "none",
+};
+
+interface SetSessionCookiesOptions {
+  // /auth/refresh no rota el csrfToken: peticiones en vuelo con el header
+  // anterior fallarían justo después de refrescar.
+  rotateCsrfToken?: boolean;
 }
 
-// Emite las tres cookies de sesión descritas en api-contract.md (sección
+// Emite las cookies de sesión descritas en api-contract.md (sección
 // "Sesión"): accessToken y refreshToken httpOnly, csrfToken legible por el
-// frontend. Devuelve el refreshToken para que quien llame pueda guardar su
-// hash en el usuario.
-const setSessionCookies = (
+// frontend. Los tokens JWT los crea el service (que también guarda el hash del
+// refreshToken); aquí solo se convierten en cookies.
+export const setSessionCookies = (
   res: Response,
-  payload: SessionCookiesPayload,
-): { refreshToken: string } => {
-  const accessToken = createAccessToken(payload);
-  const refreshToken = createRefreshToken(payload);
-  const csrfToken = createCsrfToken();
-
-  res.cookie("accessToken", accessToken, {
+  session: SessionTokens,
+  { rotateCsrfToken = true }: SetSessionCookiesOptions = {},
+): void => {
+  res.cookie("accessToken", session.accessToken, {
+    ...baseCookieOptions,
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
     maxAge: ACCESS_TOKEN_MAX_AGE_MS,
   });
 
-  res.cookie("refreshToken", refreshToken, {
+  res.cookie("refreshToken", session.refreshToken, {
+    ...baseCookieOptions,
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/auth/refresh",
+    path: REFRESH_TOKEN_PATH,
     maxAge: REFRESH_TOKEN_MAX_AGE_MS,
   });
 
-  res.cookie("csrfToken", csrfToken, {
-    httpOnly: false,
-    secure: true,
-    sameSite: "none",
-    maxAge: REFRESH_TOKEN_MAX_AGE_MS,
-  });
-
-  return { refreshToken };
+  if (rotateCsrfToken) {
+    res.cookie("csrfToken", createCsrfToken(), {
+      ...baseCookieOptions,
+      httpOnly: false,
+      maxAge: REFRESH_TOKEN_MAX_AGE_MS,
+    });
+  }
 };
 
-export default setSessionCookies;
+// Para borrar una cookie el navegador exige los mismos atributos (path,
+// secure, sameSite) con los que se creó, sobre todo el path del refreshToken.
+export const clearSessionCookies = (res: Response): void => {
+  res.clearCookie("accessToken", { ...baseCookieOptions, httpOnly: true });
+  res.clearCookie("refreshToken", {
+    ...baseCookieOptions,
+    httpOnly: true,
+    path: REFRESH_TOKEN_PATH,
+  });
+  res.clearCookie("csrfToken", { ...baseCookieOptions, httpOnly: false });
+};

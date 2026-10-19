@@ -1,4 +1,4 @@
-import type { RegisterUserDto } from "../types/types.js";
+import type { LoginUserDto, RegisterUserDto } from "../types/types.js";
 
 export const validRegisterDto: RegisterUserDto = {
   name: "Isa",
@@ -11,5 +11,17 @@ export const buildRegisterDto = (
   overrides: Partial<RegisterUserDto> = {},
 ): RegisterUserDto => ({
   ...validRegisterDto,
+  ...overrides,
+});
+
+export const validLoginDto: LoginUserDto = {
+  email: validRegisterDto.email,
+  password: validRegisterDto.password,
+};
+
+export const buildLoginDto = (
+  overrides: Partial<LoginUserDto> = {},
+): LoginUserDto => ({
+  ...validLoginDto,
   ...overrides,
 });
