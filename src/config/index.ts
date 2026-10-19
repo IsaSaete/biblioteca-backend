@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { buildCookiePolicy } from "../utils/buildCookiePolicy.js";
 import { parseAllowedOrigins } from "./parseAllowedOrigins.js";
 
 const envSchema = z.object({
@@ -9,6 +10,18 @@ const envSchema = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI es obligatoria"),
   FRONTEND_URL: z.url("FRONTEND_URL debe ser una URL válida"),
   EXTRA_ALLOWED_ORIGINS: z.string().optional(),
+  // Cómo llega la API al navegador. Por defecto, directa desde otro origen
+  // (cookies SameSite=None). Detrás del proxy del frontend: COOKIE_SAME_SITE=lax,
+  // API_PUBLIC_PATH_PREFIX=/api y TRUST_PROXY_HOPS con los saltos reales.
+  COOKIE_SAME_SITE: z.enum(["none", "lax", "strict"]).default("none"),
+  API_PUBLIC_PATH_PREFIX: z
+    .string()
+    .regex(
+      /^(\/[a-z0-9-]+)*$/,
+      "API_PUBLIC_PATH_PREFIX debe ser vacío o una ruta como /api, sin barra final",
+    )
+    .default(""),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(1).max(5).default(1),
   ACCESS_TOKEN_SECRET: z
     .string()
     .min(32, "ACCESS_TOKEN_SECRET debe tener al menos 32 caracteres"),
@@ -60,6 +73,11 @@ const config = {
   refreshTokenSecret: env.REFRESH_TOKEN_SECRET,
   resendApiKey: env.RESEND,
   googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY,
+  cookiePolicy: buildCookiePolicy({
+    sameSite: env.COOKIE_SAME_SITE,
+    publicPathPrefix: env.API_PUBLIC_PATH_PREFIX,
+  }),
+  trustProxyHops: env.TRUST_PROXY_HOPS,
 };
 
 export default config;

@@ -1,14 +1,14 @@
 import type { CookieOptions, Response } from "express";
 import { createCsrfToken } from "./tokens.js";
+import config from "../config/index.js";
 import type { SessionTokens } from "../domains/auth/types/types.js";
 
 const ACCESS_TOKEN_MAX_AGE_MS = 15 * 60 * 1000;
 const REFRESH_TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-const REFRESH_TOKEN_PATH = "/auth/refresh";
 
 const baseCookieOptions: CookieOptions = {
   secure: true,
-  sameSite: "none",
+  sameSite: config.cookiePolicy.sameSite,
 };
 
 interface SetSessionCookiesOptions {
@@ -35,7 +35,7 @@ export const setSessionCookies = (
   res.cookie("refreshToken", session.refreshToken, {
     ...baseCookieOptions,
     httpOnly: true,
-    path: REFRESH_TOKEN_PATH,
+    path: config.cookiePolicy.refreshTokenPath,
     maxAge: REFRESH_TOKEN_MAX_AGE_MS,
   });
 
@@ -55,7 +55,7 @@ export const clearSessionCookies = (res: Response): void => {
   res.clearCookie("refreshToken", {
     ...baseCookieOptions,
     httpOnly: true,
-    path: REFRESH_TOKEN_PATH,
+    path: config.cookiePolicy.refreshTokenPath,
   });
   res.clearCookie("csrfToken", { ...baseCookieOptions, httpOnly: false });
 };
