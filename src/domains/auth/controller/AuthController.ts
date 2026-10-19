@@ -130,6 +130,43 @@ const logout = async (
   }
 };
 
-const AuthController = { register, verifyEmail, login, me, refresh, logout };
+const forgotPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    await AuthService.requestPasswordReset(req.body);
+
+    res.status(200).end();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    await AuthService.resetPassword(req.body);
+
+    res.status(200).end();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const AuthController = {
+  register,
+  verifyEmail,
+  login,
+  me,
+  refresh,
+  logout,
+  forgotPassword,
+  resetPassword,
+};
 
 export default AuthController;

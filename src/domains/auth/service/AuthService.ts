@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import ValidationError from "../../../shared/errors/ValidationError.js";
 import UnauthorizedError from "../../../shared/errors/UnauthorizedError.js";
+import sendPasswordResetEmail from "../../../shared/email/sendPasswordResetEmail.js";
 import sendVerificationEmail from "../../../shared/email/sendVerificationEmail.js";
 import {
   createAccessToken,
@@ -12,12 +13,15 @@ import {
 } from "../../../utils/tokens.js";
 import User from "../model/User.js";
 import mapUserDocumentToDto from "../mapper/mapUserDocumentToDto.js";
+import validateForgotPasswordDto from "../validator/validateForgotPasswordDto.js";
 import validateLoginDto from "../validator/validateLoginDto.js";
 import validateRegisterDto from "../validator/validateRegisterDto.js";
+import validateResetPasswordDto from "../validator/validateResetPasswordDto.js";
 import type { SessionTokens, UserDto } from "../types/types.js";
 
 const BCRYPT_COST = 12;
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 export interface RegisterUserResult {
   user: UserDto;
@@ -199,6 +203,59 @@ const verifyEmail = async (token: string): Promise<void> => {
   await user.save();
 };
 
+// Resuelve igual exista o no el email (api-contract.md): nunca revela si una
+// cuenta está registrada.
+const requestPasswordReset = async (body: unknown): Promise<void> => {
+  const dto = validateForgotPasswordDto(body);
+
+  const resetToken = createRawToken();
+
+  const user = await User.findOneAndUpdate(
+    { email: dto.email },
+    {
+      passwordResetTokenHash: hashToken(resetToken),
+      passwordResetTokenExpiresAt: new Date(
+        Date.now() + PASSWORD_RESET_TOKEN_TTL_MS,
+      ),
+    },
+  );
+
+  if (user) {
+    await sendPasswordResetEmail(user.email, resetToken);
+  }
+};
+
+// El token se consume en la misma operación atómica que cambia la contraseña,
+// así es de un solo uso aunque lleguen dos peticiones a la vez. Además revoca
+// la sesión abierta: si alguien la había robado, deja de servirle.
+const resetPassword = async (body: unknown): Promise<void> => {
+  const dto = validateResetPasswordDto(body);
+
+  const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_COST);
+
+  const user = await User.findOneAndUpdate(
+    {
+      passwordResetTokenHash: hashToken(dto.token),
+      passwordResetTokenExpiresAt: { $gt: new Date() },
+    },
+    {
+      passwordHash,
+      $unset: {
+        passwordResetTokenHash: 1,
+        passwordResetTokenExpiresAt: 1,
+        refreshTokenHash: 1,
+      },
+    },
+  );
+
+  if (!user) {
+    throw new ValidationError(
+      "AUTH_INVALID_TOKEN",
+      "El enlace de recuperación no es válido o ha caducado",
+    );
+  }
+};
+
 const AuthService = {
   registerUser,
   verifyEmail,
@@ -206,6 +263,8 @@ const AuthService = {
   getCurrentUser,
   refreshSession,
   logoutUser,
+  requestPasswordReset,
+  resetPassword,
 };
 
 export default AuthService;
