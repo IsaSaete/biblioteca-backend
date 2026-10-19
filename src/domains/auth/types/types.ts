@@ -10,3 +10,13 @@ export interface UserDto {
   name: string;
   email: string;
 }
+
+export interface LoginUserDto {
+  email: string;
+  password: string;
+}
+
+export interface SessionTokens {
+  accessToken: string;
+  refreshToken: string;
+}
