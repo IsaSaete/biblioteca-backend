@@ -20,3 +20,12 @@ export interface SessionTokens {
   accessToken: string;
   refreshToken: string;
 }
+
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export interface ResetPasswordDto {
+  token: string;
+  newPassword: string;
+}

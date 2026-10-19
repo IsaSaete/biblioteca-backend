@@ -6,7 +6,7 @@ import type { RegisterUserDto } from "../types/types.js";
 // un número y un símbolo. Cada uno es su propio refine para poder decir
 // exactamente qué requisito falló (api-contract.md exige el campo en los
 // errores de formulario).
-const passwordSchema = z
+export const passwordSchema = z
   .string()
   .min(8, "La contraseña debe tener al menos 8 caracteres")
   .refine((value) => /[A-Z]/.test(value), {

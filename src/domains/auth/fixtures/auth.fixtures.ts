@@ -25,3 +25,5 @@ export const buildLoginDto = (
   ...validLoginDto,
   ...overrides,
 });
+
+export const NEW_VALID_PASSWORD = "N3w!Password";
