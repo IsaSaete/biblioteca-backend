@@ -13,7 +13,7 @@ export const EXTERNAL_SEARCH_LIMIT = 10;
 const providerUnavailable = (): BadGatewayError =>
   new BadGatewayError(
     "BOOK_PROVIDER_UNAVAILABLE",
-    "No hemos podido consultar el catálogo de libros. Inténtalo de nuevo en unos minutos",
+    "Lo sentimos, no hemos podido encontrar este libro. Puedes añadirlo manualmente",
   );
 
 export interface ExternalBooksService {
