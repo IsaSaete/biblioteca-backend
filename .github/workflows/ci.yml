@@ -53,6 +53,7 @@ jobs:
           ACCESS_TOKEN_SECRET: "test-access-token-secret-0123456789"
           REFRESH_TOKEN_SECRET: "test-refresh-token-secret-0123456789"
           RESEND: "test-resend-key"
+          GOOGLE_BOOKS_API_KEY: "test-google-books-key"
 
       - name: 🏗️ Build
         run: npm run build

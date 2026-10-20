@@ -10,3 +10,5 @@ process.env.ACCESS_TOKEN_SECRET =
 process.env.REFRESH_TOKEN_SECRET =
   process.env.REFRESH_TOKEN_SECRET ?? "test-refresh-token-secret-0123456789";
 process.env.RESEND = process.env.RESEND ?? "test-resend-key";
+process.env.GOOGLE_BOOKS_API_KEY =
+  process.env.GOOGLE_BOOKS_API_KEY ?? "test-google-books-key";
