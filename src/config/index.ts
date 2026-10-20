@@ -29,7 +29,9 @@ const envSchema = z.object({
     .string()
     .min(32, "REFRESH_TOKEN_SECRET debe tener al menos 32 caracteres"),
   RESEND: z.string().min(1, "RESEND es obligatoria"),
-  GOOGLE_BOOKS_API_KEY: z.string().optional(),
+  GOOGLE_BOOKS_API_KEY: z
+    .string()
+    .min(1, "GOOGLE_BOOKS_API_KEY es obligatoria"),
 });
 
 const parsedEnv = envSchema
