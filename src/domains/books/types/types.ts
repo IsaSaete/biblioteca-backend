@@ -77,3 +77,19 @@ export interface ListLibraryQuery {
   sort: LibrarySort;
   cursor?: string;
 }
+
+// Libro tal y como lo devuelve un proveedor externo: aún no está guardado, así
+// que no tiene `id`. Los campos que el proveedor no da se omiten.
+export interface ExternalBookDto {
+  isbn?: string;
+  title: string;
+  authors: string[];
+  publisher?: string;
+  publishedYear?: number;
+  pageCount?: number;
+  language?: string;
+  coverUrl?: string;
+  coverSource?: CoverSource;
+  synopsis?: string;
+  categories?: string[];
+}

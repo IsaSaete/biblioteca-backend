@@ -1,4 +1,8 @@
-import type { CreateBookDto } from "../types/types.js";
+import {
+  BookProviderError,
+  type BookProvider,
+} from "../provider/BookProvider.js";
+import type { CreateBookDto, ExternalBookDto } from "../types/types.js";
 
 // ISBN-13 válidos con dígito de control correcto; el segundo es otra edición.
 export const ISBN_13 = "9780306406157";
@@ -36,3 +40,42 @@ export const buildManualBookDto = (
   publisher: "Edición del autor",
   ...overrides,
 });
+
+export const buildExternalBook = (
+  overrides: Partial<ExternalBookDto> = {},
+): ExternalBookDto => ({
+  isbn: ISBN_13,
+  title: "La sombra del viento",
+  authors: ["Carlos Ruiz Zafón"],
+  publisher: "Planeta",
+  publishedYear: 2001,
+  pageCount: 576,
+  language: "es",
+  coverUrl: "https://books.google.com/covers/sombra.jpg",
+  coverSource: "google_books",
+  ...overrides,
+});
+
+// Proveedor falso: nunca toca internet. `failing` simula un proveedor caído.
+export const buildFakeProvider = (
+  name: string,
+  behaviour: {
+    book?: ExternalBookDto | null;
+    results?: ExternalBookDto[];
+    failing?: boolean;
+  } = {},
+): BookProvider => {
+  const respond = async <T>(value: T): Promise<T> => {
+    if (behaviour.failing) {
+      throw new BookProviderError(name, "caído");
+    }
+
+    return value;
+  };
+
+  return {
+    name,
+    findByIsbn: () => respond(behaviour.book ?? null),
+    search: () => respond(behaviour.results ?? []),
+  };
+};
