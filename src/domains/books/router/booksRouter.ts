@@ -33,6 +33,7 @@ export const createBooksRouter = (
     externalBooksController.searchExternal,
   );
   booksRouter.get("/", BooksController.listLibrary);
+  booksRouter.get("/:id", BooksController.getBook);
   booksRouter.post("/", handleCsrf, BooksController.createBook);
 
   return booksRouter;

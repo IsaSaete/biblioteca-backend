@@ -48,6 +48,23 @@ const listLibrary = async (
   }
 };
 
-const BooksController = { createBook, listLibrary };
+const getBook = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { book, ejemplar } = await BooksService.getBook(
+      getSessionUserId(req),
+      req.params.id,
+    );
+
+    res.status(200).json({ book, ejemplar });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const BooksController = { createBook, listLibrary, getBook };
 
 export default BooksController;
