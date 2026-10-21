@@ -333,6 +333,26 @@ const updateEjemplar = async (
   return mapEjemplarToDto(ejemplar);
 };
 
-const BooksService = { createBook, listLibrary, getBook, updateEjemplar };
+// Solo se elimina el Ejemplar del usuario: Libro es compartido y no se toca,
+// aunque ya no lo tenga nadie.
+const deleteBook = async (userId: string, bookId: string): Promise<void> => {
+  if (!Types.ObjectId.isValid(bookId)) {
+    throw BOOK_NOT_FOUND;
+  }
+
+  const deleted = await Ejemplar.findOneAndDelete({ userId, bookId }).lean();
+
+  if (!deleted) {
+    throw BOOK_NOT_FOUND;
+  }
+};
+
+const BooksService = {
+  createBook,
+  listLibrary,
+  getBook,
+  updateEjemplar,
+  deleteBook,
+};
 
 export default BooksService;
