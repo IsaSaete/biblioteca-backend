@@ -83,6 +83,26 @@ const updateEjemplar = async (
   }
 };
 
-const BooksController = { createBook, listLibrary, getBook, updateEjemplar };
+const deleteBook = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    await BooksService.deleteBook(getSessionUserId(req), req.params.id);
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const BooksController = {
+  createBook,
+  listLibrary,
+  getBook,
+  updateEjemplar,
+  deleteBook,
+};
 
 export default BooksController;

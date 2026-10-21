@@ -456,3 +456,86 @@ describe("Given the PATCH /books/:id/ejemplar endpoint", () => {
     });
   });
 });
+
+const deleteBook = (cookie: string, bookId: string) =>
+  request(app)
+    .delete(`/books/${bookId}`)
+    .set("Cookie", cookie)
+    .set("X-CSRF-Token", CSRF_TOKEN);
+
+describe("Given the DELETE /books/:id endpoint", () => {
+  describe("When the user deletes a book of their library", () => {
+    it("Then it should respond 204 and the book should leave their library", async () => {
+      const { cookie } = createSessionCookie();
+      const created = await postBook(cookie, buildCreateBookDto());
+      const bookId = created.body.book.id;
+
+      const response = await deleteBook(cookie, bookId);
+
+      expect(response.status).toBe(204);
+      expect(response.body).toEqual({});
+      const detail = await request(app)
+        .get(`/books/${bookId}`)
+        .set("Cookie", cookie);
+      expect(detail.status).toBe(404);
+      const library = await request(app).get("/books").set("Cookie", cookie);
+      expect(library.body.items).toEqual([]);
+    });
+  });
+
+  describe("When another user also has that book", () => {
+    it("Then it should keep it in the other user's library", async () => {
+      const userA = createSessionCookie();
+      const userB = createSessionCookie();
+      const created = await postBook(userA.cookie, buildCreateBookDto());
+      await postBook(userB.cookie, buildCreateBookDto());
+
+      await deleteBook(userA.cookie, created.body.book.id);
+
+      const library = await request(app)
+        .get("/books")
+        .set("Cookie", userB.cookie);
+      expect(library.body.items).toHaveLength(1);
+    });
+  });
+
+  describe("When the book is not in the user's library", () => {
+    it("Then it should respond 404 with BOOK_NOT_FOUND", async () => {
+      const owner = createSessionCookie();
+      const other = createSessionCookie();
+      const created = await postBook(owner.cookie, buildCreateBookDto());
+
+      const response = await deleteBook(other.cookie, created.body.book.id);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("BOOK_NOT_FOUND");
+    });
+  });
+
+  describe("When the request has no session", () => {
+    it("Then it should respond 401 with AUTH_UNAUTHENTICATED", async () => {
+      const response = await request(app).delete(
+        "/books/64b7f0c2a1b2c3d4e5f60718",
+      );
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("AUTH_UNAUTHENTICATED");
+    });
+  });
+
+  describe("When the request has a session but no CSRF header", () => {
+    it("Then it should respond 403 with CSRF_INVALID and keep the book", async () => {
+      const { cookie } = createSessionCookie();
+      const created = await postBook(cookie, buildCreateBookDto());
+
+      const response = await request(app)
+        .delete(`/books/${created.body.book.id}`)
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("CSRF_INVALID");
+      const library = await request(app).get("/books").set("Cookie", cookie);
+      expect(library.body.items).toHaveLength(1);
+    });
+  });
+});

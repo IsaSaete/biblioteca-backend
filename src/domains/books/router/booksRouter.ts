@@ -39,6 +39,7 @@ export const createBooksRouter = (
     handleCsrf,
     BooksController.updateEjemplar,
   );
+  booksRouter.delete("/:id", handleCsrf, BooksController.deleteBook);
   booksRouter.post("/", handleCsrf, BooksController.createBook);
 
   return booksRouter;
