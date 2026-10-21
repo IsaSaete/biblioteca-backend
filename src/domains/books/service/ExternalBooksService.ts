@@ -16,6 +16,31 @@ const providerUnavailable = (): BadGatewayError =>
     "Lo sentimos, no hemos podido encontrar este libro. Puedes añadirlo manualmente",
   );
 
+// El proveedor que respondió puede conocer el libro y no tener portada. Los
+// demás se consultan solo para completarla; si fallan o tampoco la tienen, el
+// libro se devuelve igual sin portada.
+const findCoverElsewhere = async (
+  providers: BookProvider[],
+  isbn: string,
+): Promise<Pick<ExternalBookDto, "coverUrl" | "coverSource">> => {
+  for (const provider of providers) {
+    try {
+      const other = await provider.findByIsbn(isbn);
+
+      if (other?.coverUrl && other.coverSource) {
+        return { coverUrl: other.coverUrl, coverSource: other.coverSource };
+      }
+    } catch (error) {
+      logger.warn(
+        { provider: provider.name, reason: (error as Error).message },
+        "Book provider failed while looking for a cover",
+      );
+    }
+  }
+
+  return {};
+};
+
 export interface ExternalBooksService {
   lookupByIsbn(query: unknown): Promise<ExternalBookDto>;
   searchExternal(query: unknown): Promise<ExternalBookDto[]>;
@@ -31,7 +56,7 @@ const createExternalBooksService = (
     ask: (provider: BookProvider) => Promise<T>,
     hasResult: (result: T) => boolean,
     empty: T,
-  ): Promise<{ result: T; anyFailed: boolean }> => {
+  ): Promise<{ result: T; anyFailed: boolean; answered?: BookProvider }> => {
     let anyFailed = false;
 
     for (const provider of providers) {
@@ -39,7 +64,7 @@ const createExternalBooksService = (
         const result = await ask(provider);
 
         if (hasResult(result)) {
-          return { result, anyFailed };
+          return { result, anyFailed, answered: provider };
         }
       } catch (error) {
         anyFailed = true;
@@ -57,14 +82,21 @@ const createExternalBooksService = (
     lookupByIsbn: async (query) => {
       const isbn = validateIsbnQuery(query);
 
-      const { result, anyFailed } = await queryProviders(
+      const { result, anyFailed, answered } = await queryProviders(
         (provider) => provider.findByIsbn(isbn),
         (book) => book !== null,
         null,
       );
 
       if (result) {
-        return { ...result, isbn };
+        const coverUrl = result.coverUrl
+          ? {}
+          : await findCoverElsewhere(
+              providers.filter((provider) => provider !== answered),
+              isbn,
+            );
+
+        return { ...result, ...coverUrl, isbn };
       }
 
       if (anyFailed) {
