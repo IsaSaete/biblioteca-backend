@@ -65,6 +65,24 @@ const getBook = async (
   }
 };
 
-const BooksController = { createBook, listLibrary, getBook };
+const updateEjemplar = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const ejemplar = await BooksService.updateEjemplar(
+      getSessionUserId(req),
+      req.params.id,
+      req.body,
+    );
+
+    res.status(200).json({ ejemplar });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const BooksController = { createBook, listLibrary, getBook, updateEjemplar };
 
 export default BooksController;

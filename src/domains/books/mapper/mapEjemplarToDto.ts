@@ -27,6 +27,16 @@ const mapEjemplarToDto = (ejemplar: EjemplarRecord): EjemplarDto => {
     id: ejemplar._id.toString(),
     bookId: ejemplar.bookId.toString(),
     status: ejemplar.status,
+    favorite: ejemplar.favorite ?? false,
+    ...(ejemplar.location && { location: ejemplar.location }),
+    ...(ejemplar.format && { format: ejemplar.format }),
+    ...(ejemplar.provenance && { provenance: ejemplar.provenance }),
+    ...(ejemplar.acquisitionDate && {
+      acquisitionDate: ejemplar.acquisitionDate.toISOString().slice(0, 10),
+    }),
+    ...(ejemplar.notes && { notes: ejemplar.notes }),
+    ...(ejemplar.tags &&
+      ejemplar.tags.length > 0 && { tags: [...ejemplar.tags] }),
     ...(overrides && { overrides }),
     createdAt: ejemplar.createdAt.toISOString(),
   };
