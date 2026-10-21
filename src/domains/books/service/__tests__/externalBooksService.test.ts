@@ -32,6 +32,44 @@ describe("Given the ExternalBooksService.lookupByIsbn function", () => {
     });
   });
 
+  describe("When the main provider knows the book but has no cover and the fallback has one", () => {
+    it("Then it should return the main book with the fallback's cover", async () => {
+      const withoutCover = buildExternalBook({
+        coverUrl: undefined,
+        coverSource: undefined,
+      });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { book: withoutCover }),
+        buildFakeProvider("open_library", { book: openLibraryBook }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).toEqual({
+        ...withoutCover,
+        coverUrl: openLibraryBook.coverUrl,
+        coverSource: "open_library",
+      });
+    });
+  });
+
+  describe("When the main provider has no cover and the fallback fails", () => {
+    it("Then it should still return the main book without cover", async () => {
+      const withoutCover = buildExternalBook({
+        coverUrl: undefined,
+        coverSource: undefined,
+      });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { book: withoutCover }),
+        buildFakeProvider("open_library", { failing: true }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).toEqual(withoutCover);
+    });
+  });
+
   describe("When the main provider does not know the ISBN but the fallback does", () => {
     it("Then it should return the fallback's book", async () => {
       const service = createExternalBooksService([
