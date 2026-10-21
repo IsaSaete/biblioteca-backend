@@ -276,3 +276,61 @@ describe("Given the GET /books endpoint", () => {
     });
   });
 });
+
+describe("Given the GET /books/:id endpoint", () => {
+  describe("When the user has that book", () => {
+    it("Then it should respond 200 with { book, ejemplar }", async () => {
+      const { cookie } = createSessionCookie();
+      const created = await postBook(cookie, buildCreateBookDto());
+
+      const response = await request(app)
+        .get(`/books/${created.body.book.id}`)
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        book: created.body.book,
+        ejemplar: created.body.ejemplar,
+      });
+    });
+  });
+
+  describe("When the book belongs to another user", () => {
+    it("Then it should respond 404 with BOOK_NOT_FOUND", async () => {
+      const owner = createSessionCookie();
+      const other = createSessionCookie();
+      const created = await postBook(owner.cookie, buildCreateBookDto());
+
+      const response = await request(app)
+        .get(`/books/${created.body.book.id}`)
+        .set("Cookie", other.cookie);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("BOOK_NOT_FOUND");
+    });
+  });
+
+  describe("When the id is malformed", () => {
+    it("Then it should respond 404 with BOOK_NOT_FOUND", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/books/no-es-un-id")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("BOOK_NOT_FOUND");
+    });
+  });
+
+  describe("When the request has no session", () => {
+    it("Then it should respond 401 with AUTH_UNAUTHENTICATED", async () => {
+      const response = await request(app).get(
+        "/books/64b7f0c2a1b2c3d4e5f60718",
+      );
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("AUTH_UNAUTHENTICATED");
+    });
+  });
+});

@@ -1,5 +1,6 @@
 import { Types, type PipelineStage } from "mongoose";
 import ConflictError from "../../../shared/errors/ConflictError.js";
+import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import Book from "../model/Book.js";
 import Ejemplar from "../model/Ejemplar.js";
 import mapBookToDto, { type BookRecord } from "../mapper/mapBookToDto.js";
@@ -26,6 +27,11 @@ const MONGO_DUPLICATE_KEY_ERROR = 11000;
 const BOOK_ALREADY_IN_LIBRARY = new ConflictError(
   "BOOK_ALREADY_IN_LIBRARY",
   "Este libro ya está en tu biblioteca",
+);
+
+const BOOK_NOT_FOUND = new NotFoundError(
+  "BOOK_NOT_FOUND",
+  "El libro no está en tu biblioteca",
 );
 
 const isDuplicateKeyError = (error: unknown): boolean =>
@@ -224,6 +230,26 @@ const listLibrary = async (
   };
 };
 
-const BooksService = { createBook, listLibrary };
+// Un id mal formado o de otro usuario es lo mismo para el cliente: ese libro no
+// está en su biblioteca.
+const getBook = async (
+  userId: string,
+  bookId: string,
+): Promise<LibraryItemDto> => {
+  if (!Types.ObjectId.isValid(bookId)) {
+    throw BOOK_NOT_FOUND;
+  }
+
+  const ejemplar = await Ejemplar.findOne({ userId, bookId }).lean();
+  const book = ejemplar ? await Book.findById(ejemplar.bookId).lean() : null;
+
+  if (!ejemplar || !book) {
+    throw BOOK_NOT_FOUND;
+  }
+
+  return { book: mapBookToDto(book), ejemplar: mapEjemplarToDto(ejemplar) };
+};
+
+const BooksService = { createBook, listLibrary, getBook };
 
 export default BooksService;
