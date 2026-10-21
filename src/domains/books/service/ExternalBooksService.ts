@@ -64,6 +64,8 @@ const createExternalBooksService = (
         const result = await ask(provider);
 
         if (hasResult(result)) {
+          logger.info({ provider: provider.name }, "Book provider answered");
+
           return { result, anyFailed, answered: provider };
         }
       } catch (error) {
