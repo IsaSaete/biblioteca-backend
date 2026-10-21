@@ -1,5 +1,5 @@
 import { Schema, model, type InferSchemaType } from "mongoose";
-import { READING_STATUSES } from "../types/types.js";
+import { FORMATS, PROVENANCES, READING_STATUSES } from "../types/types.js";
 
 const overridesSchema = new Schema(
   {
@@ -25,6 +25,13 @@ const ejemplarSchema = new Schema(
       required: true,
       default: "pending",
     },
+    favorite: { type: Boolean, required: true, default: false },
+    location: { type: String },
+    format: { type: String, enum: FORMATS },
+    provenance: { type: String, enum: PROVENANCES },
+    acquisitionDate: { type: Date },
+    notes: { type: String },
+    tags: { type: [String], default: undefined },
     overrides: { type: overridesSchema },
   },
   { timestamps: true },

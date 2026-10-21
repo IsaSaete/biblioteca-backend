@@ -66,6 +66,7 @@ describe("Given the POST /books endpoint", () => {
           id: expect.any(String),
           bookId: response.body.book.id,
           status: "pending",
+          favorite: false,
           createdAt: expect.any(String),
         },
       });
@@ -331,6 +332,127 @@ describe("Given the GET /books/:id endpoint", () => {
 
       expect(response.status).toBe(401);
       expect(response.body.error.code).toBe("AUTH_UNAUTHENTICATED");
+    });
+  });
+});
+
+const patchEjemplar = (cookie: string, bookId: string, body: unknown) =>
+  request(app)
+    .patch(`/books/${bookId}/ejemplar`)
+    .set("Cookie", cookie)
+    .set("X-CSRF-Token", CSRF_TOKEN)
+    .send(body as object);
+
+describe("Given the PATCH /books/:id/ejemplar endpoint", () => {
+  describe("When the user edits their personal data", () => {
+    it("Then it should respond 200 with { ejemplar } and GET should return it", async () => {
+      const { cookie } = createSessionCookie();
+      const created = await postBook(cookie, buildCreateBookDto());
+      const bookId = created.body.book.id;
+
+      const response = await patchEjemplar(cookie, bookId, {
+        favorite: true,
+        notes: "Releer en verano",
+        tags: ["novela"],
+        overrides: { title: "Mi edición" },
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        ejemplar: {
+          id: created.body.ejemplar.id,
+          bookId,
+          status: "pending",
+          favorite: true,
+          notes: "Releer en verano",
+          tags: ["novela"],
+          overrides: { title: "Mi edición" },
+          createdAt: created.body.ejemplar.createdAt,
+        },
+      });
+
+      const detail = await request(app)
+        .get(`/books/${bookId}`)
+        .set("Cookie", cookie);
+      expect(detail.body.ejemplar).toEqual(response.body.ejemplar);
+      expect(detail.body.book).toEqual(created.body.book);
+    });
+  });
+
+  describe("When the body has more than 5 tags", () => {
+    it("Then it should respond 400 with TAG_LIMIT_EXCEEDED", async () => {
+      const { cookie } = createSessionCookie();
+      const created = await postBook(cookie, buildCreateBookDto());
+
+      const response = await patchEjemplar(cookie, created.body.book.id, {
+        tags: ["a", "b", "c", "d", "e", "f"],
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("TAG_LIMIT_EXCEEDED");
+    });
+  });
+
+  describe("When the format is not valid", () => {
+    it("Then it should respond 400 with VALIDATION_ERROR on format", async () => {
+      const { cookie } = createSessionCookie();
+      const created = await postBook(cookie, buildCreateBookDto());
+
+      const response = await patchEjemplar(cookie, created.body.book.id, {
+        format: "ebook",
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "format",
+      });
+    });
+  });
+
+  describe("When the book belongs to another user", () => {
+    it("Then it should respond 404 with BOOK_NOT_FOUND and not change it", async () => {
+      const owner = createSessionCookie();
+      const other = createSessionCookie();
+      const created = await postBook(owner.cookie, buildCreateBookDto());
+      const bookId = created.body.book.id;
+
+      const response = await patchEjemplar(other.cookie, bookId, {
+        favorite: true,
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("BOOK_NOT_FOUND");
+      const detail = await request(app)
+        .get(`/books/${bookId}`)
+        .set("Cookie", owner.cookie);
+      expect(detail.body.ejemplar.favorite).toBe(false);
+    });
+  });
+
+  describe("When the request has no session", () => {
+    it("Then it should respond 401 with AUTH_UNAUTHENTICATED", async () => {
+      const response = await request(app)
+        .patch("/books/64b7f0c2a1b2c3d4e5f60718/ejemplar")
+        .send({ favorite: true });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("AUTH_UNAUTHENTICATED");
+    });
+  });
+
+  describe("When the request has a session but no CSRF header", () => {
+    it("Then it should respond 403 with CSRF_INVALID", async () => {
+      const { cookie } = createSessionCookie();
+      const created = await postBook(cookie, buildCreateBookDto());
+
+      const response = await request(app)
+        .patch(`/books/${created.body.book.id}/ejemplar`)
+        .set("Cookie", cookie)
+        .send({ favorite: true });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("CSRF_INVALID");
     });
   });
 });

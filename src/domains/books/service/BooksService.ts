@@ -8,6 +8,7 @@ import mapEjemplarToDto, {
   type EjemplarRecord,
 } from "../mapper/mapEjemplarToDto.js";
 import validateCreateBookDto from "../validator/validateCreateBookDto.js";
+import validateUpdateEjemplarDto from "../validator/validateUpdateEjemplarDto.js";
 import validateListLibraryQuery from "../validator/validateListLibraryQuery.js";
 import {
   decodeLibraryCursor,
@@ -16,8 +17,10 @@ import {
 import type {
   BookEditableFields,
   CreateBookDto,
+  EjemplarDto,
   LibraryItemDto,
   LibraryPageDto,
+  UpdateEjemplarDto,
 } from "../types/types.js";
 
 export const LIBRARY_PAGE_SIZE = 24;
@@ -250,6 +253,86 @@ const getBook = async (
   return { book: mapBookToDto(book), ejemplar: mapEjemplarToDto(ejemplar) };
 };
 
-const BooksService = { createBook, listLibrary, getBook };
+const SCALAR_FIELDS = [
+  "status",
+  "location",
+  "format",
+  "provenance",
+  "notes",
+  "favorite",
+] as const satisfies readonly (keyof UpdateEjemplarDto)[];
+
+// `null` borra el campo ($unset); un valor lo guarda ($set). Los overrides se
+// fusionan campo a campo con los que ya había.
+const buildEjemplarUpdate = (dto: UpdateEjemplarDto) => {
+  const $set: Record<string, unknown> = {};
+  const $unset: Record<string, 1> = {};
+
+  const assign = (path: string, value: unknown) => {
+    if (value === null) {
+      $unset[path] = 1;
+    } else if (value !== undefined) {
+      $set[path] = value;
+    }
+  };
+
+  for (const key of SCALAR_FIELDS) {
+    assign(key, dto[key]);
+  }
+
+  if (dto.acquisitionDate !== undefined) {
+    assign(
+      "acquisitionDate",
+      dto.acquisitionDate && new Date(dto.acquisitionDate),
+    );
+  }
+
+  if (dto.tags) {
+    if (dto.tags.length > 0) {
+      $set.tags = dto.tags;
+    } else {
+      $unset.tags = 1;
+    }
+  }
+
+  for (const [key, value] of Object.entries(dto.overrides ?? {})) {
+    assign(`overrides.${key}`, value);
+  }
+
+  return {
+    ...(Object.keys($set).length > 0 && { $set }),
+    ...(Object.keys($unset).length > 0 && { $unset }),
+  };
+};
+
+// Nunca toca Libro: toda corrección va a Ejemplar.
+const updateEjemplar = async (
+  userId: string,
+  bookId: string,
+  body: unknown,
+): Promise<EjemplarDto> => {
+  if (!Types.ObjectId.isValid(bookId)) {
+    throw BOOK_NOT_FOUND;
+  }
+
+  const dto = validateUpdateEjemplarDto(body);
+  const update = buildEjemplarUpdate(dto);
+
+  const ejemplar =
+    Object.keys(update).length > 0
+      ? await Ejemplar.findOneAndUpdate({ userId, bookId }, update, {
+          new: true,
+          runValidators: true,
+        }).lean()
+      : await Ejemplar.findOne({ userId, bookId }).lean();
+
+  if (!ejemplar) {
+    throw BOOK_NOT_FOUND;
+  }
+
+  return mapEjemplarToDto(ejemplar);
+};
+
+const BooksService = { createBook, listLibrary, getBook, updateEjemplar };
 
 export default BooksService;

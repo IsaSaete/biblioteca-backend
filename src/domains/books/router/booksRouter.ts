@@ -34,6 +34,11 @@ export const createBooksRouter = (
   );
   booksRouter.get("/", BooksController.listLibrary);
   booksRouter.get("/:id", BooksController.getBook);
+  booksRouter.patch(
+    "/:id/ejemplar",
+    handleCsrf,
+    BooksController.updateEjemplar,
+  );
   booksRouter.post("/", handleCsrf, BooksController.createBook);
 
   return booksRouter;
