@@ -74,7 +74,9 @@ Jest: tests unitarios de `service/` (sin HTTP) y tests de integración de `route
 
 ## Git
 
-Trunk Based Development. Ramas: `feature/`, `refactor/`, `bugfix/` + kebab-case, siempre desde `main` actualizado. **Nunca commitear directo a `main`** (única excepción: el primer commit de cada repositorio). Commits atómicos, imperativos, en inglés, con mayúscula inicial. Detalle completo: `normas-desarrollo.md`.
+Trunk Based Development. Ramas: `feature/`, `refactor/`, `bugfix/` + kebab-case, siempre desde `main` actualizado. **Nunca commitear directo a `main`** (única excepción: el primer commit de cada repositorio). Commits atómicos, imperativos, en inglés, con mayúscula inicial.
+
+**Antes de commitear, lee «Qué es un commit atómico» en `normas-desarrollo.md`** (no basta con este resumen). Reglas rápidas: un endpoint = un commit (con sus tests); un refactor va en un commit previo, nunca dentro de la funcionalidad; si una historia añade varios endpoints, un PR por endpoint; añade los archivos **por ruta**, nunca `git add -A` al final de la sesión; más de ~8 archivos o más de un dominio en un commit es señal para partirlo. Detalle completo: `normas-desarrollo.md`.
 
 ## Definition of Done
 
