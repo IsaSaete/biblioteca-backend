@@ -226,6 +226,42 @@ describe("Given the GET /quotes endpoint", () => {
     });
   });
 
+  describe("When filtering by unlinked=true", () => {
+    it("Then it should return only the quotes without a book", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { ejemplar } = await addBook(userId);
+      await postQuote(cookie, buildCreateQuoteDto(ejemplar.id));
+      await postQuote(
+        cookie,
+        buildCreateQuoteDto(undefined, { source: "Un paper" }),
+      );
+
+      const response = await request(app)
+        .get("/quotes")
+        .query({ unlinked: "true" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body.total).toBe(1);
+      expect(response.body.items[0]).toMatchObject({ source: "Un paper" });
+      expect(response.body.items[0]).not.toHaveProperty("book");
+    });
+  });
+
+  describe("When unlinked=true is combined with bookId", () => {
+    it("Then it should respond 400 VALIDATION_ERROR", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/quotes")
+        .query({ unlinked: "true", bookId: new Types.ObjectId().toString() })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    });
+  });
+
   describe("When the bookId is not in the user's library", () => {
     it("Then it should respond 404 BOOK_NOT_FOUND", async () => {
       const { cookie } = createSessionCookie();
