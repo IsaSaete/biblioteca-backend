@@ -268,6 +268,47 @@ describe("Given the GET /books endpoint", () => {
     });
   });
 
+  describe("When the user searches by a word of the title or author", () => {
+    it("Then it should respond 200 with only the matching books", async () => {
+      const { cookie } = createSessionCookie();
+      await postBook(
+        cookie,
+        buildManualBookDto({ title: "Cien años de soledad" }),
+      );
+      await postBook(cookie, buildManualBookDto({ title: "Ficciones" }));
+
+      const response = await request(app)
+        .get("/books")
+        .query({ search: "ANOS" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(
+        response.body.items.map(
+          (item: { book: { title: string } }) => item.book.title,
+        ),
+      ).toEqual(["Cien años de soledad"]);
+      expect(response.body.nextCursor).toBeNull();
+    });
+  });
+
+  describe("When the search is too long", () => {
+    it("Then it should respond 400 with VALIDATION_ERROR on search", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/books")
+        .query({ search: "a".repeat(101) })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "search",
+      });
+    });
+  });
+
   describe("When the request has no session", () => {
     it("Then it should respond 401 with AUTH_UNAUTHENTICATED", async () => {
       const response = await request(app).get("/books");
