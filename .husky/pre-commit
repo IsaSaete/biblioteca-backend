@@ -5,4 +5,15 @@ if [ "$branch" = "master" ] || [ "$branch" = "main" ]; then
   exit 1
 fi
 
+# Aviso (no bloquea): un commit grande suele mezclar varios cambios lógicos.
+# Ver «Qué es un commit atómico» en biblioteca-docs/normas-desarrollo.md.
+staged_files="$(git diff --cached --name-only)"
+staged_count="$(echo "$staged_files" | grep -c .)"
+staged_domains="$(echo "$staged_files" | grep -o '^src/domains/[^/]*' | sort -u | wc -l | tr -d ' ')"
+
+if [ "$staged_count" -gt 8 ] || [ "$staged_domains" -gt 1 ]; then
+  echo "Warning: this commit touches $staged_count files in $staged_domains domain(s)."
+  echo "Consider splitting it into atomic commits (one logical change each)."
+fi
+
 npx lint-staged
