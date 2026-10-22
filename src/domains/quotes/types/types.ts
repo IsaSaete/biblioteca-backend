@@ -2,12 +2,15 @@ export const QUOTE_ORIGINS = ["manual", "ocr"] as const;
 
 export const MAX_QUOTE_LENGTH = 5000;
 
+export const MAX_SOURCE_LENGTH = 120;
+
 export type QuoteOrigin = (typeof QUOTE_ORIGINS)[number];
 
 export interface CreateQuoteDto {
-  ejemplarId: string;
+  ejemplarId?: string;
   text: string;
   page?: number;
+  source?: string;
   origin: QuoteOrigin;
 }
 

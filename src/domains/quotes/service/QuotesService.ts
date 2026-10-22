@@ -33,6 +33,18 @@ const createQuote = async (
 ): Promise<QuoteDto> => {
   const dto = validateCreateQuoteDto(body);
 
+  if (!dto.ejemplarId) {
+    const quote = await Quote.create({
+      userId,
+      text: dto.text,
+      origin: dto.origin,
+      ...(dto.page !== undefined && { page: dto.page }),
+      ...(dto.source && { source: dto.source }),
+    });
+
+    return mapQuoteToDto(quote.toObject());
+  }
+
   // Un id mal formado o de otro usuario es lo mismo para el cliente: ese libro
   // no está en su biblioteca.
   if (!Types.ObjectId.isValid(dto.ejemplarId)) {
