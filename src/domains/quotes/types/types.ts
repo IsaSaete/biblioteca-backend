@@ -14,10 +14,11 @@ export interface CreateQuoteDto {
   origin: QuoteOrigin;
 }
 
-// `page: null` borra la página; `text` no admite `null`.
+// `page: null` y `source: null` borran el campo; `text` no admite `null`.
 export interface UpdateQuoteDto {
   text?: string;
   page?: number | null;
+  source?: string | null;
 }
 
 export interface ListQuotesQuery {

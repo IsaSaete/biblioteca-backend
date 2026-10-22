@@ -137,6 +137,79 @@ describe("Given quotes without a book", () => {
   });
 });
 
+describe("Given the QuotesService.updateQuote function and the source", () => {
+  describe("When the user changes the source of a quote without a book", () => {
+    it("Then it should save the trimmed source and keep the rest", async () => {
+      const userId = newUserId();
+      const unlinked = await insertUnlinkedQuote(userId, "Antigua");
+
+      const quote = await QuotesService.updateQuote(userId, unlinked.id, {
+        source: "  Nueva fuente ",
+      });
+
+      expect(quote).toMatchObject({
+        text: "Una cita suelta",
+        page: 4,
+        source: "Nueva fuente",
+      });
+    });
+  });
+
+  describe.each([
+    ["null", null],
+    ["an empty string", "  "],
+  ])("When the source is %s", (_case, source) => {
+    it("Then it should remove the source", async () => {
+      const userId = newUserId();
+      const unlinked = await insertUnlinkedQuote(userId, "Antigua");
+
+      const quote = await QuotesService.updateQuote(userId, unlinked.id, {
+        source,
+      });
+
+      expect(quote).not.toHaveProperty("source");
+      expect((await Quote.findById(unlinked.id))?.source).toBeUndefined();
+    });
+  });
+
+  describe("When the source has more than 120 characters", () => {
+    it("Then it should throw VALIDATION_ERROR on source", async () => {
+      const userId = newUserId();
+      const unlinked = await insertUnlinkedQuote(userId);
+
+      await expect(
+        QuotesService.updateQuote(userId, unlinked.id, {
+          source: "a".repeat(121),
+        }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "source" });
+    });
+  });
+
+  describe("When the quote has a book", () => {
+    it.each([
+      ["a text", "Paper"],
+      ["null", null],
+    ])(
+      "Then sending source as %s should throw VALIDATION_ERROR on source",
+      async (_case, source) => {
+        const userId = newUserId();
+        const { ejemplar } = await BooksService.createBook(
+          userId,
+          buildCreateBookDto(),
+        );
+        const quote = await QuotesService.createQuote(
+          userId,
+          buildCreateQuoteDto(ejemplar.id),
+        );
+
+        await expect(
+          QuotesService.updateQuote(userId, quote.id, { source }),
+        ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "source" });
+      },
+    );
+  });
+});
+
 describe("Given the QuotesService.listQuotes function with unlinked", () => {
   describe("When the user filters by unlinked=true", () => {
     it("Then it should return only their quotes without a book and their total", async () => {
