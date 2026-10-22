@@ -23,6 +23,7 @@ export interface UpdateQuoteDto {
 
 export interface ListQuotesQuery {
   bookId?: string;
+  unlinked: boolean;
   cursor?: string;
 }
 
@@ -46,6 +47,11 @@ export interface QuotesPageDto {
   items: QuoteDto[];
   nextCursor: string | null;
   total: number;
+}
+
+export interface QuoteBooksDto {
+  items: QuoteBookDto[];
+  unlinkedCount: number;
 }
 
 export interface QuoteBookDto {

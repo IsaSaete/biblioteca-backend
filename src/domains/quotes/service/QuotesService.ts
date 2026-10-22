@@ -14,7 +14,7 @@ import mapQuoteToDto from "../mapper/mapQuoteToDto.js";
 import validateCreateQuoteDto from "../validator/validateCreateQuoteDto.js";
 import validateUpdateQuoteDto from "../validator/validateUpdateQuoteDto.js";
 import validateListQuotesQuery from "../validator/validateListQuotesQuery.js";
-import type { QuoteBookDto, QuoteDto, QuotesPageDto } from "../types/types.js";
+import type { QuoteBooksDto, QuoteDto, QuotesPageDto } from "../types/types.js";
 
 export const QUOTES_PAGE_SIZE = 24;
 
@@ -77,12 +77,20 @@ const listQuotes = async (
   userId: string,
   query: unknown,
 ): Promise<QuotesPageDto> => {
-  const { bookId, cursor: rawCursor } = validateListQuotesQuery(query);
+  const {
+    bookId,
+    unlinked,
+    cursor: rawCursor,
+  } = validateListQuotesQuery(query);
   const cursor = rawCursor
     ? decodeLibraryCursor(rawCursor, "recent")
     : undefined;
 
   const filter: QueryFilter<QuoteDocument> = { userId };
+
+  if (unlinked) {
+    filter.ejemplarId = { $exists: false };
+  }
 
   if (bookId) {
     if (!Types.ObjectId.isValid(bookId)) {
@@ -253,9 +261,14 @@ const deleteQuote = async (userId: string, quoteId: string): Promise<void> => {
   }
 };
 
-// Libros con al menos una cita, para el filtro de la pantalla Citas. El título
-// lleva los overrides del usuario.
-const listQuoteBooks = async (userId: string): Promise<QuoteBookDto[]> => {
+// Libros con al menos una cita y número de citas sin libro, para el filtro de
+// la pantalla Citas. El título lleva los overrides del usuario.
+const listQuoteBooks = async (userId: string): Promise<QuoteBooksDto> => {
+  const unlinkedCount = await Quote.countDocuments({
+    userId,
+    ejemplarId: { $exists: false },
+  });
+
   const counts = await Quote.aggregate<{ _id: Types.ObjectId; count: number }>([
     {
       $match: {
@@ -294,7 +307,10 @@ const listQuoteBooks = async (userId: string): Promise<QuoteBookDto[]> => {
 
   const collator = new Intl.Collator("es", { sensitivity: "base" });
 
-  return items.sort((a, b) => collator.compare(a.title, b.title));
+  return {
+    items: items.sort((a, b) => collator.compare(a.title, b.title)),
+    unlinkedCount,
+  };
 };
 
 const QuotesService = {
