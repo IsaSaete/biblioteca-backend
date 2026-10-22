@@ -11,14 +11,20 @@ import {
 import Quote, { type QuoteDocument } from "../model/Quote.js";
 import mapQuoteToDto from "../mapper/mapQuoteToDto.js";
 import validateCreateQuoteDto from "../validator/validateCreateQuoteDto.js";
+import validateUpdateQuoteDto from "../validator/validateUpdateQuoteDto.js";
 import validateListQuotesQuery from "../validator/validateListQuotesQuery.js";
-import type { QuoteDto, QuotesPageDto } from "../types/types.js";
+import type { QuoteBookDto, QuoteDto, QuotesPageDto } from "../types/types.js";
 
 export const QUOTES_PAGE_SIZE = 24;
 
 const BOOK_NOT_FOUND = new NotFoundError(
   "BOOK_NOT_FOUND",
   "El libro no está en tu biblioteca",
+);
+
+const QUOTE_NOT_FOUND = new NotFoundError(
+  "QUOTE_NOT_FOUND",
+  "La cita no existe",
 );
 
 const createQuote = async (
@@ -138,6 +144,124 @@ const listQuotes = async (
   };
 };
 
-const QuotesService = { createQuote, listQuotes };
+// Un id mal formado o de otra persona es lo mismo para el cliente: esa cita no
+// existe.
+const findOwnQuote = async (userId: string, quoteId: string) => {
+  if (!Types.ObjectId.isValid(quoteId)) {
+    throw QUOTE_NOT_FOUND;
+  }
+
+  const quote = await Quote.findOne({ _id: quoteId, userId }).lean();
+  const ejemplar = quote
+    ? await Ejemplar.findById(quote.ejemplarId).lean()
+    : null;
+  const book = ejemplar ? await Book.findById(ejemplar.bookId).lean() : null;
+
+  if (!quote || !ejemplar || !book) {
+    throw QUOTE_NOT_FOUND;
+  }
+
+  return { quote, ejemplar, book };
+};
+
+const getQuote = async (userId: string, quoteId: string): Promise<QuoteDto> => {
+  const { quote, ejemplar, book } = await findOwnQuote(userId, quoteId);
+
+  return mapQuoteToDto(quote, ejemplar, book);
+};
+
+const updateQuote = async (
+  userId: string,
+  quoteId: string,
+  body: unknown,
+): Promise<QuoteDto> => {
+  const dto = validateUpdateQuoteDto(body);
+  const current = await findOwnQuote(userId, quoteId);
+
+  const $set = {
+    ...(dto.text !== undefined && { text: dto.text }),
+    ...(typeof dto.page === "number" && { page: dto.page }),
+  };
+  const $unset = dto.page === null ? { page: 1 as const } : undefined;
+
+  if (Object.keys($set).length === 0 && !$unset) {
+    return mapQuoteToDto(current.quote, current.ejemplar, current.book);
+  }
+
+  const updated = await Quote.findOneAndUpdate(
+    { _id: quoteId, userId },
+    {
+      ...(Object.keys($set).length > 0 && { $set }),
+      ...($unset && { $unset }),
+    },
+    { returnDocument: "after", runValidators: true },
+  ).lean();
+
+  if (!updated) {
+    throw QUOTE_NOT_FOUND;
+  }
+
+  return mapQuoteToDto(updated, current.ejemplar, current.book);
+};
+
+const deleteQuote = async (userId: string, quoteId: string): Promise<void> => {
+  if (!Types.ObjectId.isValid(quoteId)) {
+    throw QUOTE_NOT_FOUND;
+  }
+
+  const deleted = await Quote.findOneAndDelete({ _id: quoteId, userId }).lean();
+
+  if (!deleted) {
+    throw QUOTE_NOT_FOUND;
+  }
+};
+
+// Libros con al menos una cita, para el filtro de la pantalla Citas. El título
+// lleva los overrides del usuario.
+const listQuoteBooks = async (userId: string): Promise<QuoteBookDto[]> => {
+  const counts = await Quote.aggregate<{ _id: Types.ObjectId; count: number }>([
+    { $match: { userId: new Types.ObjectId(userId) } },
+    { $group: { _id: "$ejemplarId", count: { $sum: 1 } } },
+  ]);
+
+  const ejemplares = await Ejemplar.find({
+    _id: { $in: counts.map((row) => row._id) },
+  }).lean();
+  const books = await Book.find({
+    _id: { $in: ejemplares.map((ejemplar) => ejemplar.bookId) },
+  }).lean();
+
+  const countsByEjemplar = new Map(
+    counts.map((row) => [row._id.toString(), row.count]),
+  );
+  const booksById = new Map(books.map((book) => [book._id.toString(), book]));
+
+  const items = ejemplares.flatMap((ejemplar) => {
+    const book = booksById.get(ejemplar.bookId.toString());
+
+    return book
+      ? [
+          {
+            bookId: book._id.toString(),
+            title: ejemplar.overrides?.title ?? book.title,
+            count: countsByEjemplar.get(ejemplar._id.toString()) ?? 0,
+          },
+        ]
+      : [];
+  });
+
+  const collator = new Intl.Collator("es", { sensitivity: "base" });
+
+  return items.sort((a, b) => collator.compare(a.title, b.title));
+};
+
+const QuotesService = {
+  createQuote,
+  listQuotes,
+  getQuote,
+  updateQuote,
+  deleteQuote,
+  listQuoteBooks,
+};
 
 export default QuotesService;
