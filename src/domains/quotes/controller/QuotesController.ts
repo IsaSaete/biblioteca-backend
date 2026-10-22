@@ -103,9 +103,11 @@ const listQuoteBooks = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const items = await QuotesService.listQuoteBooks(getSessionUserId(req));
+    const quoteBooks = await QuotesService.listQuoteBooks(
+      getSessionUserId(req),
+    );
 
-    res.status(200).json({ items });
+    res.status(200).json(quoteBooks);
   } catch (error) {
     next(error);
   }

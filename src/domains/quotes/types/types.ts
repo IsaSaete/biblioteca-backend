@@ -47,6 +47,11 @@ export interface QuotesPageDto {
   total: number;
 }
 
+export interface QuoteBooksDto {
+  items: QuoteBookDto[];
+  unlinkedCount: number;
+}
+
 export interface QuoteBookDto {
   bookId: string;
   title: string;
