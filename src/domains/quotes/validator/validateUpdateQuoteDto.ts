@@ -6,6 +6,11 @@ import { quoteFieldSchemas } from "./quoteFieldSchemas.js";
 const updateQuoteSchema = z.object({
   text: quoteFieldSchemas.text.optional(),
   page: quoteFieldSchemas.page.nullable().optional(),
+  // Una cadena vacía borra la fuente, igual que `null`.
+  source: quoteFieldSchemas.source
+    .nullable()
+    .optional()
+    .transform((value) => (value === "" ? null : value)),
 });
 
 const validateUpdateQuoteDto = (body: unknown): UpdateQuoteDto => {

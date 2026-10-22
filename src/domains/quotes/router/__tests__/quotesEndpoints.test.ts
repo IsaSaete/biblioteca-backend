@@ -82,6 +82,46 @@ describe("Given the POST /quotes endpoint", () => {
     });
   });
 
+  describe("When the user saves a quote without a book", () => {
+    it("Then it should respond 201 with a quote without ejemplarId or book and with its source", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await postQuote(
+        cookie,
+        buildCreateQuoteDto(undefined, { source: "Biblioteca de Triana" }),
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        quote: {
+          id: expect.any(String),
+          text: "Cuando se vive en una casa de libros, nunca se está solo.",
+          page: 9,
+          source: "Biblioteca de Triana",
+          createdAt: expect.any(String),
+        },
+      });
+    });
+  });
+
+  describe("When the quote has an ejemplarId and a source", () => {
+    it("Then it should respond 400 VALIDATION_ERROR with field source", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { ejemplar } = await addBook(userId);
+
+      const response = await postQuote(
+        cookie,
+        buildCreateQuoteDto(ejemplar.id, { source: "Paper" }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "source",
+      });
+    });
+  });
+
   describe("When the text is empty", () => {
     it("Then it should respond 400 VALIDATION_ERROR with field text", async () => {
       const { cookie, userId } = createSessionCookie();
@@ -183,6 +223,42 @@ describe("Given the GET /quotes endpoint", () => {
       expect(response.status).toBe(200);
       expect(response.body.total).toBe(1);
       expect(response.body.items[0].book.id).toBe(second.book.id);
+    });
+  });
+
+  describe("When filtering by unlinked=true", () => {
+    it("Then it should return only the quotes without a book", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { ejemplar } = await addBook(userId);
+      await postQuote(cookie, buildCreateQuoteDto(ejemplar.id));
+      await postQuote(
+        cookie,
+        buildCreateQuoteDto(undefined, { source: "Un paper" }),
+      );
+
+      const response = await request(app)
+        .get("/quotes")
+        .query({ unlinked: "true" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body.total).toBe(1);
+      expect(response.body.items[0]).toMatchObject({ source: "Un paper" });
+      expect(response.body.items[0]).not.toHaveProperty("book");
+    });
+  });
+
+  describe("When unlinked=true is combined with bookId", () => {
+    it("Then it should respond 400 VALIDATION_ERROR", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/quotes")
+        .query({ unlinked: "true", bookId: new Types.ObjectId().toString() })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
     });
   });
 
@@ -337,6 +413,38 @@ describe("Given the PATCH /quotes/:id endpoint", () => {
     });
   });
 
+  describe("When the user edits the source of a quote without a book", () => {
+    it("Then it should respond 200 with the new source", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const stored = await Quote.create({ userId, text: "Suelta" });
+
+      const response = await patchQuote(cookie, stored.id, {
+        source: "Biblioteca de Triana",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.quote).toMatchObject({
+        source: "Biblioteca de Triana",
+      });
+      expect(response.body.quote).not.toHaveProperty("book");
+    });
+  });
+
+  describe("When the user sends a source for a quote with a book", () => {
+    it("Then it should respond 400 VALIDATION_ERROR with field source", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { id } = await addQuote(userId);
+
+      const response = await patchQuote(cookie, id, { source: "Paper" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "source",
+      });
+    });
+  });
+
   describe("When the text is null", () => {
     it("Then it should respond 400 VALIDATION_ERROR with field text", async () => {
       const { cookie, userId } = createSessionCookie();
@@ -458,7 +566,22 @@ describe("Given the GET /quotes/books endpoint", () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         items: [{ bookId: book.id, title: book.title, count: 1 }],
+        unlinkedCount: 0,
       });
+    });
+  });
+
+  describe("When the user has quotes without a book", () => {
+    it("Then it should report them in unlinkedCount", async () => {
+      const { cookie } = createSessionCookie();
+      await postQuote(cookie, buildCreateQuoteDto(undefined));
+      await postQuote(cookie, buildCreateQuoteDto(undefined));
+
+      const response = await request(app)
+        .get("/quotes/books")
+        .set("Cookie", cookie);
+
+      expect(response.body).toEqual({ items: [], unlinkedCount: 2 });
     });
   });
 
@@ -471,7 +594,7 @@ describe("Given the GET /quotes/books endpoint", () => {
         .set("Cookie", cookie);
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ items: [] });
+      expect(response.body).toEqual({ items: [], unlinkedCount: 0 });
     });
   });
 

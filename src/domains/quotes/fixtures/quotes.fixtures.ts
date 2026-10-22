@@ -1,7 +1,7 @@
 import type { CreateQuoteDto } from "../types/types.js";
 
 export const buildCreateQuoteDto = (
-  ejemplarId: string,
+  ejemplarId: string | undefined,
   overrides: Partial<CreateQuoteDto> = {},
 ): Partial<CreateQuoteDto> => ({
   ejemplarId,

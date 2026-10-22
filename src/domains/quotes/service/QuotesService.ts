@@ -1,5 +1,6 @@
 import { Types, type QueryFilter } from "mongoose";
 import NotFoundError from "../../../shared/errors/NotFoundError.js";
+import ValidationError from "../../../shared/errors/ValidationError.js";
 import Book from "../../books/model/Book.js";
 import Ejemplar from "../../books/model/Ejemplar.js";
 import type { BookRecord } from "../../books/mapper/mapBookToDto.js";
@@ -13,7 +14,7 @@ import mapQuoteToDto from "../mapper/mapQuoteToDto.js";
 import validateCreateQuoteDto from "../validator/validateCreateQuoteDto.js";
 import validateUpdateQuoteDto from "../validator/validateUpdateQuoteDto.js";
 import validateListQuotesQuery from "../validator/validateListQuotesQuery.js";
-import type { QuoteBookDto, QuoteDto, QuotesPageDto } from "../types/types.js";
+import type { QuoteBooksDto, QuoteDto, QuotesPageDto } from "../types/types.js";
 
 export const QUOTES_PAGE_SIZE = 24;
 
@@ -32,6 +33,18 @@ const createQuote = async (
   body: unknown,
 ): Promise<QuoteDto> => {
   const dto = validateCreateQuoteDto(body);
+
+  if (!dto.ejemplarId) {
+    const quote = await Quote.create({
+      userId,
+      text: dto.text,
+      origin: dto.origin,
+      ...(dto.page !== undefined && { page: dto.page }),
+      ...(dto.source && { source: dto.source }),
+    });
+
+    return mapQuoteToDto(quote.toObject());
+  }
 
   // Un id mal formado o de otro usuario es lo mismo para el cliente: ese libro
   // no está en su biblioteca.
@@ -64,12 +77,20 @@ const listQuotes = async (
   userId: string,
   query: unknown,
 ): Promise<QuotesPageDto> => {
-  const { bookId, cursor: rawCursor } = validateListQuotesQuery(query);
+  const {
+    bookId,
+    unlinked,
+    cursor: rawCursor,
+  } = validateListQuotesQuery(query);
   const cursor = rawCursor
     ? decodeLibraryCursor(rawCursor, "recent")
     : undefined;
 
   const filter: QueryFilter<QuoteDocument> = { userId };
+
+  if (unlinked) {
+    filter.ejemplarId = { $exists: false };
+  }
 
   if (bookId) {
     if (!Types.ObjectId.isValid(bookId)) {
@@ -110,7 +131,7 @@ const listQuotes = async (
   const hasMore = rows.length > QUOTES_PAGE_SIZE;
 
   const ejemplares = await Ejemplar.find({
-    _id: { $in: pageRows.map((row) => row.ejemplarId) },
+    _id: { $in: pageRows.flatMap((row) => row.ejemplarId ?? []) },
   }).lean();
   const books = await Book.find({
     _id: { $in: ejemplares.map((ejemplar) => ejemplar.bookId) },
@@ -124,6 +145,10 @@ const listQuotes = async (
   );
 
   const items = pageRows.flatMap((row) => {
+    if (!row.ejemplarId) {
+      return [mapQuoteToDto(row)];
+    }
+
     const ejemplar = ejemplarsById.get(row.ejemplarId.toString());
     const book = ejemplar && booksById.get(ejemplar.bookId.toString());
 
@@ -152,12 +177,20 @@ const findOwnQuote = async (userId: string, quoteId: string) => {
   }
 
   const quote = await Quote.findOne({ _id: quoteId, userId }).lean();
-  const ejemplar = quote
-    ? await Ejemplar.findById(quote.ejemplarId).lean()
-    : null;
+
+  if (!quote) {
+    throw QUOTE_NOT_FOUND;
+  }
+
+  // Una cita sin libro no tiene ejemplar ni libro que cargar.
+  if (!quote.ejemplarId) {
+    return { quote, ejemplar: undefined, book: undefined };
+  }
+
+  const ejemplar = await Ejemplar.findById(quote.ejemplarId).lean();
   const book = ejemplar ? await Book.findById(ejemplar.bookId).lean() : null;
 
-  if (!quote || !ejemplar || !book) {
+  if (!ejemplar || !book) {
     throw QUOTE_NOT_FOUND;
   }
 
@@ -178,13 +211,25 @@ const updateQuote = async (
   const dto = validateUpdateQuoteDto(body);
   const current = await findOwnQuote(userId, quoteId);
 
+  if (dto.source !== undefined && current.ejemplar) {
+    throw new ValidationError(
+      "VALIDATION_ERROR",
+      "Solo las citas sin libro llevan fuente",
+      "source",
+    );
+  }
+
   const $set = {
     ...(dto.text !== undefined && { text: dto.text }),
     ...(typeof dto.page === "number" && { page: dto.page }),
+    ...(typeof dto.source === "string" && { source: dto.source }),
   };
-  const $unset = dto.page === null ? { page: 1 as const } : undefined;
+  const $unset = {
+    ...(dto.page === null && { page: 1 as const }),
+    ...(dto.source === null && { source: 1 as const }),
+  };
 
-  if (Object.keys($set).length === 0 && !$unset) {
+  if (Object.keys($set).length === 0 && Object.keys($unset).length === 0) {
     return mapQuoteToDto(current.quote, current.ejemplar, current.book);
   }
 
@@ -192,7 +237,7 @@ const updateQuote = async (
     { _id: quoteId, userId },
     {
       ...(Object.keys($set).length > 0 && { $set }),
-      ...($unset && { $unset }),
+      ...(Object.keys($unset).length > 0 && { $unset }),
     },
     { returnDocument: "after", runValidators: true },
   ).lean();
@@ -216,11 +261,21 @@ const deleteQuote = async (userId: string, quoteId: string): Promise<void> => {
   }
 };
 
-// Libros con al menos una cita, para el filtro de la pantalla Citas. El título
-// lleva los overrides del usuario.
-const listQuoteBooks = async (userId: string): Promise<QuoteBookDto[]> => {
+// Libros con al menos una cita y número de citas sin libro, para el filtro de
+// la pantalla Citas. El título lleva los overrides del usuario.
+const listQuoteBooks = async (userId: string): Promise<QuoteBooksDto> => {
+  const unlinkedCount = await Quote.countDocuments({
+    userId,
+    ejemplarId: { $exists: false },
+  });
+
   const counts = await Quote.aggregate<{ _id: Types.ObjectId; count: number }>([
-    { $match: { userId: new Types.ObjectId(userId) } },
+    {
+      $match: {
+        userId: new Types.ObjectId(userId),
+        ejemplarId: { $exists: true },
+      },
+    },
     { $group: { _id: "$ejemplarId", count: { $sum: 1 } } },
   ]);
 
@@ -252,7 +307,10 @@ const listQuoteBooks = async (userId: string): Promise<QuoteBookDto[]> => {
 
   const collator = new Intl.Collator("es", { sensitivity: "base" });
 
-  return items.sort((a, b) => collator.compare(a.title, b.title));
+  return {
+    items: items.sort((a, b) => collator.compare(a.title, b.title)),
+    unlinkedCount,
+  };
 };
 
 const QuotesService = {

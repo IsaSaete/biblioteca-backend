@@ -71,8 +71,8 @@ describe("Given the QuotesService.listQuotes function", () => {
         "Segunda",
         "Primera",
       ]);
-      expect(page.items[0].book.title).toBe("Marina");
-      expect(page.items[1].book.title).toBe(first.book.title);
+      expect(page.items[0].book?.title).toBe("Marina");
+      expect(page.items[1].book?.title).toBe(first.book.title);
       expect(page.total).toBe(2);
     });
   });
