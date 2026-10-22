@@ -534,7 +534,22 @@ describe("Given the GET /quotes/books endpoint", () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         items: [{ bookId: book.id, title: book.title, count: 1 }],
+        unlinkedCount: 0,
       });
+    });
+  });
+
+  describe("When the user has quotes without a book", () => {
+    it("Then it should report them in unlinkedCount", async () => {
+      const { cookie } = createSessionCookie();
+      await postQuote(cookie, buildCreateQuoteDto(undefined));
+      await postQuote(cookie, buildCreateQuoteDto(undefined));
+
+      const response = await request(app)
+        .get("/quotes/books")
+        .set("Cookie", cookie);
+
+      expect(response.body).toEqual({ items: [], unlinkedCount: 2 });
     });
   });
 
@@ -547,7 +562,7 @@ describe("Given the GET /quotes/books endpoint", () => {
         .set("Cookie", cookie);
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ items: [] });
+      expect(response.body).toEqual({ items: [], unlinkedCount: 0 });
     });
   });
 

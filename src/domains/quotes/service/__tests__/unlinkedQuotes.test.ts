@@ -108,11 +108,16 @@ describe("Given quotes without a book", () => {
   });
 
   describe("When the user lists the books that have quotes", () => {
-    it("Then listQuoteBooks should not count the quotes without a book as a book", async () => {
+    it("Then listQuoteBooks should not list them as a book but count them in unlinkedCount", async () => {
       const userId = newUserId();
       await insertUnlinkedQuote(userId);
+      await insertUnlinkedQuote(userId, "Fuente");
+      await insertUnlinkedQuote(newUserId());
 
-      expect(await QuotesService.listQuoteBooks(userId)).toEqual([]);
+      expect(await QuotesService.listQuoteBooks(userId)).toEqual({
+        items: [],
+        unlinkedCount: 2,
+      });
     });
   });
 

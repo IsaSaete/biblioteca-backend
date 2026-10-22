@@ -198,7 +198,10 @@ describe("Given the QuotesService.listQuoteBooks function", () => {
     it("Then it should return an empty list", async () => {
       await BooksService.createBook(newUserId(), buildCreateBookDto());
 
-      expect(await QuotesService.listQuoteBooks(newUserId())).toEqual([]);
+      expect(await QuotesService.listQuoteBooks(newUserId())).toEqual({
+        items: [],
+        unlinkedCount: 0,
+      });
     });
   });
 
@@ -228,10 +231,13 @@ describe("Given the QuotesService.listQuoteBooks function", () => {
         buildCreateQuoteDto(alfa.ejemplar.id),
       );
 
-      expect(await QuotesService.listQuoteBooks(userId)).toEqual([
-        { bookId: alfa.book.id, title: "Álamo", count: 1 },
-        { bookId: zeta.book.id, title: "Zeta", count: 2 },
-      ]);
+      expect(await QuotesService.listQuoteBooks(userId)).toEqual({
+        items: [
+          { bookId: alfa.book.id, title: "Álamo", count: 1 },
+          { bookId: zeta.book.id, title: "Zeta", count: 2 },
+        ],
+        unlinkedCount: 0,
+      });
     });
   });
 
@@ -243,7 +249,9 @@ describe("Given the QuotesService.listQuoteBooks function", () => {
         overrides: { title: "Mi título" },
       });
 
-      const [item] = await QuotesService.listQuoteBooks(userId);
+      const {
+        items: [item],
+      } = await QuotesService.listQuoteBooks(userId);
 
       expect(item.title).toBe("Mi título");
     });
@@ -253,7 +261,10 @@ describe("Given the QuotesService.listQuoteBooks function", () => {
     it("Then it should not include their books", async () => {
       await addQuote(newUserId());
 
-      expect(await QuotesService.listQuoteBooks(newUserId())).toEqual([]);
+      expect(await QuotesService.listQuoteBooks(newUserId())).toEqual({
+        items: [],
+        unlinkedCount: 0,
+      });
     });
   });
 });
