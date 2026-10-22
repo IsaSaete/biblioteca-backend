@@ -22,6 +22,7 @@ export interface UpdateQuoteDto {
 
 export interface ListQuotesQuery {
   bookId?: string;
+  unlinked: boolean;
   cursor?: string;
 }
 

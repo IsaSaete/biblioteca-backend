@@ -136,3 +136,86 @@ describe("Given quotes without a book", () => {
     });
   });
 });
+
+describe("Given the QuotesService.listQuotes function with unlinked", () => {
+  describe("When the user filters by unlinked=true", () => {
+    it("Then it should return only their quotes without a book and their total", async () => {
+      const userId = newUserId();
+      const { ejemplar } = await BooksService.createBook(
+        userId,
+        buildCreateBookDto(),
+      );
+      await QuotesService.createQuote(userId, buildCreateQuoteDto(ejemplar.id));
+      await insertUnlinkedQuote(userId, "Fuente");
+      await insertUnlinkedQuote(userId);
+      await insertUnlinkedQuote(newUserId());
+
+      const page = await QuotesService.listQuotes(userId, {
+        unlinked: "true",
+      });
+
+      expect(page.total).toBe(2);
+      expect(page.items).toHaveLength(2);
+      expect(page.items.every((quote) => !("book" in quote))).toBe(true);
+    });
+  });
+
+  describe("When unlinked is false", () => {
+    it("Then it should behave like the unfiltered feed", async () => {
+      const userId = newUserId();
+      await insertUnlinkedQuote(userId);
+
+      const page = await QuotesService.listQuotes(userId, {
+        unlinked: "false",
+      });
+
+      expect(page.total).toBe(1);
+    });
+  });
+
+  describe("When unlinked is combined with bookId", () => {
+    it("Then it should throw VALIDATION_ERROR on unlinked", async () => {
+      const userId = newUserId();
+      const { book } = await BooksService.createBook(
+        userId,
+        buildCreateBookDto(),
+      );
+
+      await expect(
+        QuotesService.listQuotes(userId, { unlinked: "true", bookId: book.id }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "unlinked" });
+    });
+  });
+
+  describe("When unlinked has an unknown value", () => {
+    it("Then it should throw VALIDATION_ERROR on unlinked", async () => {
+      await expect(
+        QuotesService.listQuotes(newUserId(), { unlinked: "quizás" }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "unlinked" });
+    });
+  });
+
+  describe("When there are more unlinked quotes than one page", () => {
+    it("Then the cursor should continue the unlinked list", async () => {
+      const userId = newUserId();
+      await Quote.insertMany(
+        Array.from({ length: 25 }, (_, index) => ({
+          userId,
+          text: `Suelta ${index}`,
+        })),
+      );
+
+      const first = await QuotesService.listQuotes(userId, {
+        unlinked: "true",
+      });
+      const second = await QuotesService.listQuotes(userId, {
+        unlinked: "true",
+        cursor: first.nextCursor,
+      });
+
+      expect(first.items).toHaveLength(24);
+      expect(second.items).toHaveLength(1);
+      expect(second.nextCursor).toBeNull();
+    });
+  });
+});
