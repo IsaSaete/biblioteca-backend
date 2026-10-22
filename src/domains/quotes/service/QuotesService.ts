@@ -76,12 +76,20 @@ const listQuotes = async (
   userId: string,
   query: unknown,
 ): Promise<QuotesPageDto> => {
-  const { bookId, cursor: rawCursor } = validateListQuotesQuery(query);
+  const {
+    bookId,
+    unlinked,
+    cursor: rawCursor,
+  } = validateListQuotesQuery(query);
   const cursor = rawCursor
     ? decodeLibraryCursor(rawCursor, "recent")
     : undefined;
 
   const filter: QueryFilter<QuoteDocument> = { userId };
+
+  if (unlinked) {
+    filter.ejemplarId = { $exists: false };
+  }
 
   if (bookId) {
     if (!Types.ObjectId.isValid(bookId)) {
