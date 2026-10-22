@@ -3,6 +3,7 @@ import ConflictError from "../../../shared/errors/ConflictError.js";
 import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import Book from "../model/Book.js";
 import Ejemplar from "../model/Ejemplar.js";
+import Quote from "../../quotes/model/Quote.js";
 import mapBookToDto, { type BookRecord } from "../mapper/mapBookToDto.js";
 import mapEjemplarToDto, {
   type EjemplarRecord,
@@ -333,8 +334,8 @@ const updateEjemplar = async (
   return mapEjemplarToDto(ejemplar);
 };
 
-// Solo se elimina el Ejemplar del usuario: Libro es compartido y no se toca,
-// aunque ya no lo tenga nadie.
+// Solo se elimina el Ejemplar del usuario (y sus citas): Libro es compartido y
+// no se toca, aunque ya no lo tenga nadie.
 const deleteBook = async (userId: string, bookId: string): Promise<void> => {
   if (!Types.ObjectId.isValid(bookId)) {
     throw BOOK_NOT_FOUND;
@@ -345,6 +346,8 @@ const deleteBook = async (userId: string, bookId: string): Promise<void> => {
   if (!deleted) {
     throw BOOK_NOT_FOUND;
   }
+
+  await Quote.deleteMany({ ejemplarId: deleted._id });
 };
 
 const BooksService = {
