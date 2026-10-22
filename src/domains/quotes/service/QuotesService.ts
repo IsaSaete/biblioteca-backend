@@ -1,5 +1,6 @@
 import { Types, type QueryFilter } from "mongoose";
 import NotFoundError from "../../../shared/errors/NotFoundError.js";
+import ValidationError from "../../../shared/errors/ValidationError.js";
 import Book from "../../books/model/Book.js";
 import Ejemplar from "../../books/model/Ejemplar.js";
 import type { BookRecord } from "../../books/mapper/mapBookToDto.js";
@@ -202,13 +203,25 @@ const updateQuote = async (
   const dto = validateUpdateQuoteDto(body);
   const current = await findOwnQuote(userId, quoteId);
 
+  if (dto.source !== undefined && current.ejemplar) {
+    throw new ValidationError(
+      "VALIDATION_ERROR",
+      "Solo las citas sin libro llevan fuente",
+      "source",
+    );
+  }
+
   const $set = {
     ...(dto.text !== undefined && { text: dto.text }),
     ...(typeof dto.page === "number" && { page: dto.page }),
+    ...(typeof dto.source === "string" && { source: dto.source }),
   };
-  const $unset = dto.page === null ? { page: 1 as const } : undefined;
+  const $unset = {
+    ...(dto.page === null && { page: 1 as const }),
+    ...(dto.source === null && { source: 1 as const }),
+  };
 
-  if (Object.keys($set).length === 0 && !$unset) {
+  if (Object.keys($set).length === 0 && Object.keys($unset).length === 0) {
     return mapQuoteToDto(current.quote, current.ejemplar, current.book);
   }
 
@@ -216,7 +229,7 @@ const updateQuote = async (
     { _id: quoteId, userId },
     {
       ...(Object.keys($set).length > 0 && { $set }),
-      ...($unset && { $unset }),
+      ...(Object.keys($unset).length > 0 && { $unset }),
     },
     { returnDocument: "after", runValidators: true },
   ).lean();

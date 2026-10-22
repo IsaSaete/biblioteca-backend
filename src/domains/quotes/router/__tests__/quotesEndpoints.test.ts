@@ -377,6 +377,38 @@ describe("Given the PATCH /quotes/:id endpoint", () => {
     });
   });
 
+  describe("When the user edits the source of a quote without a book", () => {
+    it("Then it should respond 200 with the new source", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const stored = await Quote.create({ userId, text: "Suelta" });
+
+      const response = await patchQuote(cookie, stored.id, {
+        source: "Biblioteca de Triana",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.quote).toMatchObject({
+        source: "Biblioteca de Triana",
+      });
+      expect(response.body.quote).not.toHaveProperty("book");
+    });
+  });
+
+  describe("When the user sends a source for a quote with a book", () => {
+    it("Then it should respond 400 VALIDATION_ERROR with field source", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { id } = await addQuote(userId);
+
+      const response = await patchQuote(cookie, id, { source: "Paper" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "source",
+      });
+    });
+  });
+
   describe("When the text is null", () => {
     it("Then it should respond 400 VALIDATION_ERROR with field text", async () => {
       const { cookie, userId } = createSessionCookie();
