@@ -22,13 +22,16 @@ export interface ListQuotesQuery {
   cursor?: string;
 }
 
+// Una cita sin libro no lleva `ejemplarId` ni `book` (así se distingue) y puede
+// llevar `source`; una cita con libro nunca lleva `source`.
 export interface QuoteDto {
   id: string;
-  ejemplarId: string;
+  ejemplarId?: string;
   text: string;
   page?: number;
+  source?: string;
   createdAt: string;
-  book: {
+  book?: {
     id: string;
     title: string;
     authors: string[];

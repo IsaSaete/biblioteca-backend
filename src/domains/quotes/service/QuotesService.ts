@@ -110,7 +110,7 @@ const listQuotes = async (
   const hasMore = rows.length > QUOTES_PAGE_SIZE;
 
   const ejemplares = await Ejemplar.find({
-    _id: { $in: pageRows.map((row) => row.ejemplarId) },
+    _id: { $in: pageRows.flatMap((row) => row.ejemplarId ?? []) },
   }).lean();
   const books = await Book.find({
     _id: { $in: ejemplares.map((ejemplar) => ejemplar.bookId) },
@@ -124,6 +124,10 @@ const listQuotes = async (
   );
 
   const items = pageRows.flatMap((row) => {
+    if (!row.ejemplarId) {
+      return [mapQuoteToDto(row)];
+    }
+
     const ejemplar = ejemplarsById.get(row.ejemplarId.toString());
     const book = ejemplar && booksById.get(ejemplar.bookId.toString());
 
@@ -152,12 +156,20 @@ const findOwnQuote = async (userId: string, quoteId: string) => {
   }
 
   const quote = await Quote.findOne({ _id: quoteId, userId }).lean();
-  const ejemplar = quote
-    ? await Ejemplar.findById(quote.ejemplarId).lean()
-    : null;
+
+  if (!quote) {
+    throw QUOTE_NOT_FOUND;
+  }
+
+  // Una cita sin libro no tiene ejemplar ni libro que cargar.
+  if (!quote.ejemplarId) {
+    return { quote, ejemplar: undefined, book: undefined };
+  }
+
+  const ejemplar = await Ejemplar.findById(quote.ejemplarId).lean();
   const book = ejemplar ? await Book.findById(ejemplar.bookId).lean() : null;
 
-  if (!quote || !ejemplar || !book) {
+  if (!ejemplar || !book) {
     throw QUOTE_NOT_FOUND;
   }
 
@@ -220,7 +232,12 @@ const deleteQuote = async (userId: string, quoteId: string): Promise<void> => {
 // lleva los overrides del usuario.
 const listQuoteBooks = async (userId: string): Promise<QuoteBookDto[]> => {
   const counts = await Quote.aggregate<{ _id: Types.ObjectId; count: number }>([
-    { $match: { userId: new Types.ObjectId(userId) } },
+    {
+      $match: {
+        userId: new Types.ObjectId(userId),
+        ejemplarId: { $exists: true },
+      },
+    },
     { $group: { _id: "$ejemplarId", count: { $sum: 1 } } },
   ]);
 

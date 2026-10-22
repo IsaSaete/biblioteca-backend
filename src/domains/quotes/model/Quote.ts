@@ -4,13 +4,12 @@ import { QUOTE_ORIGINS } from "../types/types.js";
 const quoteSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    ejemplarId: {
-      type: Schema.Types.ObjectId,
-      ref: "Ejemplar",
-      required: true,
-    },
+    // Sin ejemplarId la cita no está vinculada a ningún libro (D-023).
+    ejemplarId: { type: Schema.Types.ObjectId, ref: "Ejemplar" },
     text: { type: String, required: true },
     page: { type: Number },
+    // Solo en citas sin libro: de dónde sale la cita.
+    source: { type: String },
     origin: {
       type: String,
       enum: QUOTE_ORIGINS,
