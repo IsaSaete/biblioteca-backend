@@ -143,7 +143,12 @@ describe("Given the QuotesService.createQuote function", () => {
     ["page is zero", { page: 0 }, "page"],
     ["page is not an integer", { page: 2.5 }, "page"],
     ["origin is unknown", { origin: "voz" }, "origin"],
-    ["ejemplarId is missing", { ejemplarId: undefined }, "ejemplarId"],
+    ["source is not a string", { ejemplarId: undefined, source: 5 }, "source"],
+    [
+      "source has more than 120 characters",
+      { ejemplarId: undefined, source: "a".repeat(121) },
+      "source",
+    ],
   ])("When %s", (_case, override, field) => {
     it(`Then it should throw VALIDATION_ERROR on ${field}`, async () => {
       const body = buildCreateQuoteDto(new Types.ObjectId().toString(), {
@@ -167,6 +172,58 @@ describe("Given the QuotesService.createQuote function", () => {
       );
 
       expect(quote.text).toHaveLength(5000);
+    });
+  });
+});
+
+describe("Given the QuotesService.createQuote function without ejemplarId", () => {
+  describe("When the user saves a quote with a source", () => {
+    it("Then it should store it without a book and return it without ejemplarId or book", async () => {
+      const userId = newUserId();
+
+      const quote = await QuotesService.createQuote(
+        userId,
+        buildCreateQuoteDto(undefined, {
+          source: "  Paper de Historia, UNED ",
+        }),
+      );
+
+      expect(quote).toEqual({
+        id: expect.any(String),
+        text: "Cuando se vive en una casa de libros, nunca se está solo.",
+        page: 9,
+        source: "Paper de Historia, UNED",
+        createdAt: expect.any(String),
+      });
+      const stored = await Quote.findById(quote.id);
+      expect(stored?.userId.toString()).toBe(userId);
+      expect(stored?.ejemplarId).toBeUndefined();
+    });
+  });
+
+  describe("When the source is empty", () => {
+    it("Then it should save the quote without source", async () => {
+      const quote = await QuotesService.createQuote(
+        newUserId(),
+        buildCreateQuoteDto(undefined, { source: "   " }),
+      );
+
+      expect(quote).not.toHaveProperty("source");
+    });
+  });
+
+  describe("When the quote has an ejemplarId and a source", () => {
+    it("Then it should throw VALIDATION_ERROR on source and store nothing", async () => {
+      const userId = newUserId();
+      const { ejemplar } = await addBook(userId);
+
+      await expect(
+        QuotesService.createQuote(
+          userId,
+          buildCreateQuoteDto(ejemplar.id, { source: "Paper" }),
+        ),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "source" });
+      expect(await Quote.countDocuments()).toBe(0);
     });
   });
 });

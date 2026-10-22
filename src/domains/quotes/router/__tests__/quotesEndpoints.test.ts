@@ -82,6 +82,46 @@ describe("Given the POST /quotes endpoint", () => {
     });
   });
 
+  describe("When the user saves a quote without a book", () => {
+    it("Then it should respond 201 with a quote without ejemplarId or book and with its source", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await postQuote(
+        cookie,
+        buildCreateQuoteDto(undefined, { source: "Biblioteca de Triana" }),
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        quote: {
+          id: expect.any(String),
+          text: "Cuando se vive en una casa de libros, nunca se está solo.",
+          page: 9,
+          source: "Biblioteca de Triana",
+          createdAt: expect.any(String),
+        },
+      });
+    });
+  });
+
+  describe("When the quote has an ejemplarId and a source", () => {
+    it("Then it should respond 400 VALIDATION_ERROR with field source", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { ejemplar } = await addBook(userId);
+
+      const response = await postQuote(
+        cookie,
+        buildCreateQuoteDto(ejemplar.id, { source: "Paper" }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "source",
+      });
+    });
+  });
+
   describe("When the text is empty", () => {
     it("Then it should respond 400 VALIDATION_ERROR with field text", async () => {
       const { cookie, userId } = createSessionCookie();
