@@ -251,3 +251,235 @@ describe("Given the GET /quotes endpoint", () => {
     });
   });
 });
+
+const patchQuote = (cookie: string, id: string, body: unknown) =>
+  request(app)
+    .patch(`/quotes/${id}`)
+    .set("Cookie", cookie)
+    .set("X-CSRF-Token", CSRF_TOKEN)
+    .send(body as object);
+
+const addQuote = async (userId: string) => {
+  const { book, ejemplar } = await addBook(userId);
+  const stored = await Quote.create({
+    userId,
+    ejemplarId: ejemplar.id,
+    text: "Una cita",
+    page: 3,
+  });
+
+  return { book, ejemplar, id: stored.id as string };
+};
+
+describe("Given the GET /quotes/:id endpoint", () => {
+  describe("When the quote belongs to the user", () => {
+    it("Then it should respond 200 with { quote } in the contract shape", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { book, ejemplar, id } = await addQuote(userId);
+
+      const response = await request(app)
+        .get(`/quotes/${id}`)
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        quote: {
+          id,
+          ejemplarId: ejemplar.id,
+          text: "Una cita",
+          page: 3,
+          createdAt: expect.any(String),
+          book: { id: book.id, title: book.title, authors: book.authors },
+        },
+      });
+    });
+  });
+
+  describe("When the quote belongs to another user", () => {
+    it("Then it should respond 404 QUOTE_NOT_FOUND", async () => {
+      const { cookie } = createSessionCookie();
+      const { id } = await addQuote(new Types.ObjectId().toString());
+
+      const response = await request(app)
+        .get(`/quotes/${id}`)
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("QUOTE_NOT_FOUND");
+    });
+  });
+
+  describe("When the request has no session", () => {
+    it("Then it should respond 401 AUTH_UNAUTHENTICATED", async () => {
+      const response = await request(app).get(
+        `/quotes/${new Types.ObjectId().toString()}`,
+      );
+
+      expect(response.status).toBe(401);
+    });
+  });
+});
+
+describe("Given the PATCH /quotes/:id endpoint", () => {
+  describe("When the user edits the text and removes the page", () => {
+    it("Then it should respond 200 with the updated quote without page", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { id } = await addQuote(userId);
+
+      const response = await patchQuote(cookie, id, {
+        text: "Texto nuevo",
+        page: null,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.quote).toMatchObject({ id, text: "Texto nuevo" });
+      expect(response.body.quote).not.toHaveProperty("page");
+    });
+  });
+
+  describe("When the text is null", () => {
+    it("Then it should respond 400 VALIDATION_ERROR with field text", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { id } = await addQuote(userId);
+
+      const response = await patchQuote(cookie, id, { text: null });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "text",
+      });
+    });
+  });
+
+  describe("When the quote belongs to another user", () => {
+    it("Then it should respond 404 QUOTE_NOT_FOUND", async () => {
+      const { cookie } = createSessionCookie();
+      const { id } = await addQuote(new Types.ObjectId().toString());
+
+      const response = await patchQuote(cookie, id, { text: "Hack" });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("QUOTE_NOT_FOUND");
+    });
+  });
+
+  describe("When the request has no session", () => {
+    it("Then it should respond 401", async () => {
+      const response = await request(app)
+        .patch(`/quotes/${new Types.ObjectId().toString()}`)
+        .send({ text: "x" });
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe("When the request has a session but no CSRF header", () => {
+    it("Then it should respond 403 CSRF_INVALID", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .patch(`/quotes/${new Types.ObjectId().toString()}`)
+        .set("Cookie", cookie)
+        .send({ text: "x" });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("CSRF_INVALID");
+    });
+  });
+});
+
+describe("Given the DELETE /quotes/:id endpoint", () => {
+  describe("When the quote belongs to the user", () => {
+    it("Then it should respond 204 and remove it", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { id } = await addQuote(userId);
+
+      const response = await request(app)
+        .delete(`/quotes/${id}`)
+        .set("Cookie", cookie)
+        .set("X-CSRF-Token", CSRF_TOKEN);
+
+      expect(response.status).toBe(204);
+      expect(await Quote.findById(id)).toBeNull();
+    });
+  });
+
+  describe("When the quote belongs to another user", () => {
+    it("Then it should respond 404 QUOTE_NOT_FOUND and keep it", async () => {
+      const { cookie } = createSessionCookie();
+      const { id } = await addQuote(new Types.ObjectId().toString());
+
+      const response = await request(app)
+        .delete(`/quotes/${id}`)
+        .set("Cookie", cookie)
+        .set("X-CSRF-Token", CSRF_TOKEN);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("QUOTE_NOT_FOUND");
+      expect(await Quote.findById(id)).not.toBeNull();
+    });
+  });
+
+  describe("When the request has no session", () => {
+    it("Then it should respond 401", async () => {
+      const response = await request(app).delete(
+        `/quotes/${new Types.ObjectId().toString()}`,
+      );
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe("When the request has a session but no CSRF header", () => {
+    it("Then it should respond 403 CSRF_INVALID", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .delete(`/quotes/${new Types.ObjectId().toString()}`)
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("CSRF_INVALID");
+    });
+  });
+});
+
+describe("Given the GET /quotes/books endpoint", () => {
+  describe("When the user has quotes", () => {
+    it("Then it should respond 200 with { items } and not treat books as a quote id", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { book } = await addQuote(userId);
+
+      const response = await request(app)
+        .get("/quotes/books")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        items: [{ bookId: book.id, title: book.title, count: 1 }],
+      });
+    });
+  });
+
+  describe("When the user has no quotes", () => {
+    it("Then it should respond 200 with an empty list", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/quotes/books")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ items: [] });
+    });
+  });
+
+  describe("When the request has no session", () => {
+    it("Then it should respond 401", async () => {
+      const response = await request(app).get("/quotes/books");
+
+      expect(response.status).toBe(401);
+    });
+  });
+});

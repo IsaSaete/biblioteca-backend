@@ -48,6 +48,76 @@ const listQuotes = async (
   }
 };
 
-const QuotesController = { createQuote, listQuotes };
+const getQuote = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const quote = await QuotesService.getQuote(
+      getSessionUserId(req),
+      req.params.id,
+    );
+
+    res.status(200).json({ quote });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateQuote = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const quote = await QuotesService.updateQuote(
+      getSessionUserId(req),
+      req.params.id,
+      req.body,
+    );
+
+    res.status(200).json({ quote });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteQuote = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    await QuotesService.deleteQuote(getSessionUserId(req), req.params.id);
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listQuoteBooks = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const items = await QuotesService.listQuoteBooks(getSessionUserId(req));
+
+    res.status(200).json({ items });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const QuotesController = {
+  createQuote,
+  listQuotes,
+  getQuote,
+  updateQuote,
+  deleteQuote,
+  listQuoteBooks,
+};
 
 export default QuotesController;

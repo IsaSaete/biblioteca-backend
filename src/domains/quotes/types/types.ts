@@ -11,6 +11,12 @@ export interface CreateQuoteDto {
   origin: QuoteOrigin;
 }
 
+// `page: null` borra la página; `text` no admite `null`.
+export interface UpdateQuoteDto {
+  text?: string;
+  page?: number | null;
+}
+
 export interface ListQuotesQuery {
   bookId?: string;
   cursor?: string;
@@ -33,4 +39,10 @@ export interface QuotesPageDto {
   items: QuoteDto[];
   nextCursor: string | null;
   total: number;
+}
+
+export interface QuoteBookDto {
+  bookId: string;
+  title: string;
+  count: number;
 }
