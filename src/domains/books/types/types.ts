@@ -105,6 +105,7 @@ export interface LibraryPageDto {
 export type LibrarySort = "recent" | "alpha";
 
 export interface ListLibraryQuery {
+  search?: string;
   sort: LibrarySort;
   cursor?: string;
 }

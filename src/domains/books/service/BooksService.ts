@@ -11,6 +11,7 @@ import mapEjemplarToDto, {
 import validateCreateBookDto from "../validator/validateCreateBookDto.js";
 import validateUpdateEjemplarDto from "../validator/validateUpdateEjemplarDto.js";
 import validateListLibraryQuery from "../validator/validateListLibraryQuery.js";
+import buildSearchPattern from "../utils/buildSearchPattern.js";
 import {
   decodeLibraryCursor,
   encodeLibraryCursor,
@@ -145,10 +146,45 @@ interface LibraryRow extends EjemplarRecord {
   book: BookRecord;
 }
 
+// Cada palabra del texto buscado debe aparecer en el título, los autores o las
+// etiquetas, sin distinguir mayúsculas ni tildes. Título y autores son los que
+// el usuario ve, con sus correcciones (overrides) ya aplicadas.
+const buildSearchStages = (search: string): PipelineStage[] => {
+  const joinWords = (words: unknown) => ({
+    $reduce: {
+      input: words,
+      initialValue: "",
+      in: { $concat: ["$$value", "\n", "$$this"] },
+    },
+  });
+
+  return [
+    {
+      $addFields: {
+        searchText: {
+          $concat: [
+            { $ifNull: ["$overrides.title", "$book.title"] },
+            joinWords({ $ifNull: ["$overrides.authors", "$book.authors"] }),
+            joinWords({ $ifNull: ["$tags", []] }),
+          ],
+        },
+      },
+    },
+    {
+      $match: {
+        $and: search.split(/\s+/).map((word) => ({
+          searchText: { $regex: buildSearchPattern(word), $options: "i" },
+        })),
+      },
+    },
+  ];
+};
+
 const buildLibraryPipeline = (
   userId: string,
   sort: "recent" | "alpha",
   cursor: ReturnType<typeof decodeLibraryCursor> | undefined,
+  search: string | undefined,
 ): PipelineStage[] => {
   const cursorId = cursor ? new Types.ObjectId(cursor.id) : undefined;
   const pipeline: PipelineStage[] = [
@@ -162,6 +198,7 @@ const buildLibraryPipeline = (
       },
     },
     { $unwind: "$book" },
+    ...(search ? buildSearchStages(search) : []),
   ];
 
   if (sort === "recent") {
@@ -203,12 +240,12 @@ const listLibrary = async (
   userId: string,
   query: unknown,
 ): Promise<LibraryPageDto> => {
-  const { sort, cursor: rawCursor } = validateListLibraryQuery(query);
+  const { search, sort, cursor: rawCursor } = validateListLibraryQuery(query);
   const cursor = rawCursor ? decodeLibraryCursor(rawCursor, sort) : undefined;
 
   // La ordenación alfabética ignora mayúsculas y acentos (collation español).
   const rows = await Ejemplar.aggregate<LibraryRow>(
-    buildLibraryPipeline(userId, sort, cursor),
+    buildLibraryPipeline(userId, sort, cursor, search),
   ).collation({ locale: "es", strength: 1 });
 
   const pageRows = rows.slice(0, LIBRARY_PAGE_SIZE);
