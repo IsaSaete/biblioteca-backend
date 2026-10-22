@@ -6,6 +6,8 @@ import {
 } from "../../../../test/memoryDatabase.js";
 import Book from "../../model/Book.js";
 import Ejemplar from "../../model/Ejemplar.js";
+import Quote from "../../../quotes/model/Quote.js";
+import QuotesService from "../../../quotes/service/QuotesService.js";
 import BooksService from "../BooksService.js";
 import { buildCreateBookDto } from "../../fixtures/books.fixtures.js";
 
@@ -13,6 +15,7 @@ beforeAll(async () => {
   await connectToMemoryDatabase();
   await Book.init();
   await Ejemplar.init();
+  await Quote.init();
 });
 
 afterEach(async () => {
@@ -41,6 +44,30 @@ describe("Given the BooksService.deleteBook function", () => {
       expect(await Ejemplar.countDocuments({ userId: userA })).toBe(0);
       expect(await Ejemplar.countDocuments({ userId: userB })).toBe(1);
       expect(await Book.findById(book.id)).not.toBeNull();
+    });
+  });
+
+  describe("When the book has quotes", () => {
+    it("Then it should delete the quotes of that Ejemplar and keep the rest", async () => {
+      const userId = newUserId();
+      const other = await BooksService.createBook(userId, buildCreateBookDto());
+      const deleted = await BooksService.createBook(
+        userId,
+        buildCreateBookDto({ isbn: undefined, title: "Otro libro" }),
+      );
+      await QuotesService.createQuote(userId, {
+        ejemplarId: other.ejemplar.id,
+        text: "Se queda",
+      });
+      await QuotesService.createQuote(userId, {
+        ejemplarId: deleted.ejemplar.id,
+        text: "Se va",
+      });
+
+      await BooksService.deleteBook(userId, deleted.book.id);
+
+      const remaining = await Quote.find();
+      expect(remaining.map((quote) => quote.text)).toEqual(["Se queda"]);
     });
   });
 
