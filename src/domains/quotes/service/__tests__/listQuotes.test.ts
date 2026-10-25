@@ -185,3 +185,101 @@ describe("Given the QuotesService.listQuotes function", () => {
     });
   });
 });
+
+describe("Given the QuotesService.listQuotes function with sort", () => {
+  describe("When the sort is oldest", () => {
+    it("Then it should list the quotes from the oldest to the newest", async () => {
+      const userId = newUserId();
+      const { ejemplar } = await BooksService.createBook(
+        userId,
+        buildCreateBookDto(),
+      );
+      await addQuotes(userId, ejemplar.id, ["Primera", "Segunda", "Tercera"]);
+
+      const page = await QuotesService.listQuotes(userId, { sort: "oldest" });
+
+      expect(page.items.map((quote) => quote.text)).toEqual([
+        "Primera",
+        "Segunda",
+        "Tercera",
+      ]);
+    });
+  });
+
+  describe.each([["recent"], [undefined]])("When the sort is %s", (sort) => {
+    it("Then it should list the newest first", async () => {
+      const userId = newUserId();
+      const { ejemplar } = await BooksService.createBook(
+        userId,
+        buildCreateBookDto(),
+      );
+      await addQuotes(userId, ejemplar.id, ["Primera", "Segunda"]);
+
+      const page = await QuotesService.listQuotes(userId, { sort });
+
+      expect(page.items.map((quote) => quote.text)).toEqual([
+        "Segunda",
+        "Primera",
+      ]);
+    });
+  });
+
+  describe("When the quotes are more than one page and the sort is oldest", () => {
+    it("Then the cursor should continue from the oldest without repeating or skipping", async () => {
+      const userId = newUserId();
+      const { ejemplar } = await BooksService.createBook(
+        userId,
+        buildCreateBookDto(),
+      );
+      const texts = Array.from(
+        { length: QUOTES_PAGE_SIZE + 1 },
+        (_, index) => `Cita ${index}`,
+      );
+      await addQuotes(userId, ejemplar.id, texts);
+
+      const first = await QuotesService.listQuotes(userId, { sort: "oldest" });
+      const second = await QuotesService.listQuotes(userId, {
+        sort: "oldest",
+        cursor: first.nextCursor,
+      });
+
+      expect(first.items[0].text).toBe("Cita 0");
+      expect(first.items).toHaveLength(QUOTES_PAGE_SIZE);
+      expect(second.items.map((quote) => quote.text)).toEqual([
+        `Cita ${QUOTES_PAGE_SIZE}`,
+      ]);
+      expect(second.nextCursor).toBeNull();
+    });
+  });
+
+  describe("When a cursor from one sort is used with the other", () => {
+    it("Then it should throw VALIDATION_ERROR on cursor", async () => {
+      const userId = newUserId();
+      const { ejemplar } = await BooksService.createBook(
+        userId,
+        buildCreateBookDto(),
+      );
+      await addQuotes(
+        userId,
+        ejemplar.id,
+        Array.from({ length: QUOTES_PAGE_SIZE + 1 }, (_, index) => `C${index}`),
+      );
+      const recent = await QuotesService.listQuotes(userId, {});
+
+      await expect(
+        QuotesService.listQuotes(userId, {
+          sort: "oldest",
+          cursor: recent.nextCursor,
+        }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "cursor" });
+    });
+  });
+
+  describe("When the sort is not valid", () => {
+    it("Then it should throw VALIDATION_ERROR on sort", async () => {
+      await expect(
+        QuotesService.listQuotes(newUserId(), { sort: "random" }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "sort" });
+    });
+  });
+});

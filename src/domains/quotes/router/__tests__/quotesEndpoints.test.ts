@@ -226,6 +226,43 @@ describe("Given the GET /quotes endpoint", () => {
     });
   });
 
+  describe("When the sort is oldest", () => {
+    it("Then it should respond 200 with the oldest quote first", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const { ejemplar } = await addBook(userId);
+      for (const text of ["Primera", "Segunda"]) {
+        await postQuote(cookie, buildCreateQuoteDto(ejemplar.id, { text }));
+      }
+
+      const response = await request(app)
+        .get("/quotes")
+        .query({ sort: "oldest" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(
+        response.body.items.map((quote: { text: string }) => quote.text),
+      ).toEqual(["Primera", "Segunda"]);
+    });
+  });
+
+  describe("When the sort is not valid", () => {
+    it("Then it should respond 400 VALIDATION_ERROR with field sort", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/quotes")
+        .query({ sort: "random" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "sort",
+      });
+    });
+  });
+
   describe("When filtering by unlinked=true", () => {
     it("Then it should return only the quotes without a book", async () => {
       const { cookie, userId } = createSessionCookie();

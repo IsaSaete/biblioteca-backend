@@ -80,11 +80,13 @@ const listQuotes = async (
   const {
     bookId,
     unlinked,
+    sort,
     cursor: rawCursor,
   } = validateListQuotesQuery(query);
-  const cursor = rawCursor
-    ? decodeLibraryCursor(rawCursor, "recent")
-    : undefined;
+  const cursor = rawCursor ? decodeLibraryCursor(rawCursor, sort) : undefined;
+  // `recent` avanza hacia fechas anteriores; `oldest`, hacia fechas posteriores.
+  const direction = sort === "recent" ? -1 : 1;
+  const after = sort === "recent" ? "$lt" : "$gt";
 
   const filter: QueryFilter<QuoteDocument> = { userId };
 
@@ -112,17 +114,17 @@ const listQuotes = async (
     ? {
         ...filter,
         $or: [
-          { createdAt: { $lt: new Date(cursor.value) } },
+          { createdAt: { [after]: new Date(cursor.value) } },
           {
             createdAt: new Date(cursor.value),
-            _id: { $lt: new Types.ObjectId(cursor.id) },
+            _id: { [after]: new Types.ObjectId(cursor.id) },
           },
         ],
       }
     : filter;
 
   const rows = await Quote.find(pageFilter)
-    .sort({ createdAt: -1, _id: -1 })
+    .sort({ createdAt: direction, _id: direction })
     .limit(QUOTES_PAGE_SIZE + 1)
     .lean();
 
@@ -160,7 +162,7 @@ const listQuotes = async (
     nextCursor:
       hasMore && lastRow
         ? encodeLibraryCursor({
-            sort: "recent",
+            sort,
             id: lastRow._id.toString(),
             value: lastRow.createdAt.toISOString(),
           })
