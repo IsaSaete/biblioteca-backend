@@ -187,12 +187,13 @@ interface LibraryPipelineOptions {
   cursor?: ReturnType<typeof decodeLibraryCursor>;
   search?: string;
   tag?: string;
+  untagged?: boolean;
   favorite?: boolean;
 }
 
 const buildLibraryPipeline = (
   userId: string,
-  { sort, cursor, search, tag, favorite }: LibraryPipelineOptions,
+  { sort, cursor, search, tag, untagged, favorite }: LibraryPipelineOptions,
 ): PipelineStage[] => {
   const cursorId = cursor ? new Types.ObjectId(cursor.id) : undefined;
   const pipeline: PipelineStage[] = [
@@ -200,6 +201,8 @@ const buildLibraryPipeline = (
       $match: {
         userId: new Types.ObjectId(userId),
         ...(favorite && { favorite: true }),
+        // Sin etiquetas: ausente, nulo o vacío.
+        ...(untagged && { tags: { $in: [null, []] } }),
         // Etiqueta completa, sin distinguir mayúsculas.
         ...(tag && {
           tags: { $regex: `^${escapeRegex(tag)}$`, $options: "i" },
@@ -260,6 +263,7 @@ const listLibrary = async (
   const {
     search,
     tag,
+    untagged,
     favorite,
     sort,
     cursor: rawCursor,
@@ -268,7 +272,14 @@ const listLibrary = async (
 
   // La ordenación alfabética ignora mayúsculas y acentos (collation español).
   const rows = await Ejemplar.aggregate<LibraryRow>(
-    buildLibraryPipeline(userId, { sort, cursor, search, tag, favorite }),
+    buildLibraryPipeline(userId, {
+      sort,
+      cursor,
+      search,
+      tag,
+      untagged,
+      favorite,
+    }),
   ).collation({ locale: "es", strength: 1 });
 
   const pageRows = rows.slice(0, LIBRARY_PAGE_SIZE);

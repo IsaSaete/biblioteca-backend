@@ -218,3 +218,96 @@ describe("Given the BooksService.listLibrary function with tag", () => {
     });
   });
 });
+
+describe("Given the BooksService.listLibrary function with untagged", () => {
+  describe("When the user filters by untagged=true", () => {
+    it("Then it should return only the books without any tag", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Con etiqueta", false, ["Historia"]);
+      await addBook(userId, "Sin etiquetas");
+
+      expect(await listTitles(userId, { untagged: "true" })).toEqual([
+        "Sin etiquetas",
+      ]);
+    });
+  });
+
+  describe("When a book had tags and the user removed them all", () => {
+    it("Then it should count as untagged", async () => {
+      const userId = newUserId();
+      const { book } = await BooksService.createBook(
+        userId,
+        buildManualBookDto({ title: "Se quedó sin etiquetas" }),
+      );
+      await BooksService.updateEjemplar(userId, book.id, {
+        tags: ["Historia"],
+      });
+      await BooksService.updateEjemplar(userId, book.id, { tags: [] });
+
+      expect(await listTitles(userId, { untagged: "true" })).toEqual([
+        "Se quedó sin etiquetas",
+      ]);
+    });
+  });
+
+  describe("When untagged is false", () => {
+    it("Then it should not filter", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Con etiqueta", false, ["Historia"]);
+      await addBook(userId, "Sin etiquetas");
+
+      expect(await listTitles(userId, { untagged: "false" })).toHaveLength(2);
+    });
+  });
+
+  describe("When every book has tags", () => {
+    it("Then it should return an empty page without error", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Con etiqueta", false, ["Historia"]);
+
+      expect(
+        await BooksService.listLibrary(userId, { untagged: "true" }),
+      ).toEqual({ items: [], nextCursor: null });
+    });
+  });
+
+  describe("When another user has books without tags", () => {
+    it("Then they should not appear", async () => {
+      await addBook(newUserId(), "Ajeno");
+
+      expect(await listTitles(newUserId(), { untagged: "true" })).toEqual([]);
+    });
+  });
+
+  describe("When untagged is combined with favorite", () => {
+    it("Then both filters should apply", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Favorito sin etiquetas", true);
+      await addBook(userId, "Normal sin etiquetas");
+      await addBook(userId, "Favorito con etiqueta", true, ["Historia"]);
+
+      expect(
+        await listTitles(userId, { untagged: "true", favorite: "true" }),
+      ).toEqual(["Favorito sin etiquetas"]);
+    });
+  });
+
+  describe("When untagged is combined with tag", () => {
+    it("Then it should throw VALIDATION_ERROR on untagged", async () => {
+      await expect(
+        BooksService.listLibrary(newUserId(), {
+          untagged: "true",
+          tag: "Historia",
+        }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "untagged" });
+    });
+  });
+
+  describe("When untagged has an unknown value", () => {
+    it("Then it should throw VALIDATION_ERROR on untagged", async () => {
+      await expect(
+        BooksService.listLibrary(newUserId(), { untagged: "quizás" }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "untagged" });
+    });
+  });
+});
