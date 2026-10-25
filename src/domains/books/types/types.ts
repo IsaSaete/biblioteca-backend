@@ -106,6 +106,7 @@ export type LibrarySort = "recent" | "alpha";
 
 export interface ListLibraryQuery {
   search?: string;
+  tag?: string;
   favorite: boolean;
   sort: LibrarySort;
   cursor?: string;

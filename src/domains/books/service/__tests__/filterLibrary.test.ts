@@ -29,14 +29,18 @@ const addBook = async (
   userId: string,
   title: string,
   favorite = false,
+  tags: string[] = [],
 ): Promise<void> => {
   const { book } = await BooksService.createBook(
     userId,
     buildManualBookDto({ title }),
   );
 
-  if (favorite) {
-    await BooksService.updateEjemplar(userId, book.id, { favorite: true });
+  if (favorite || tags.length > 0) {
+    await BooksService.updateEjemplar(userId, book.id, {
+      ...(favorite && { favorite: true }),
+      ...(tags.length > 0 && { tags }),
+    });
   }
 };
 
@@ -131,6 +135,86 @@ describe("Given the BooksService.listLibrary function with favorite", () => {
       await expect(
         BooksService.listLibrary(newUserId(), { favorite: "quizás" }),
       ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "favorite" });
+    });
+  });
+});
+
+describe("Given the BooksService.listLibrary function with tag", () => {
+  describe("When the user filters by a tag", () => {
+    it("Then it should return only the books with that tag, ignoring case", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Con etiqueta", false, ["Ciencia ficción", "Otra"]);
+      await addBook(userId, "Con otra", false, ["Historia"]);
+      await addBook(userId, "Sin etiquetas");
+
+      expect(await listTitles(userId, { tag: "ciencia FICCIÓN" })).toEqual([
+        "Con etiqueta",
+      ]);
+    });
+  });
+
+  describe("When the tag is only a part of another tag", () => {
+    it("Then it should not match, because the whole tag is compared", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Libro", false, ["Ciencia ficción"]);
+
+      expect(await listTitles(userId, { tag: "ciencia" })).toEqual([]);
+    });
+  });
+
+  describe("When the tag has regex special characters", () => {
+    it("Then it should be compared as plain text", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Programación", false, ["C++"]);
+      await addBook(userId, "Otro", false, ["Historia"]);
+
+      expect(await listTitles(userId, { tag: "C++" })).toEqual([
+        "Programación",
+      ]);
+      expect(await listTitles(userId, { tag: ".*" })).toEqual([]);
+    });
+  });
+
+  describe("When the tag is empty or only spaces", () => {
+    it("Then it should not filter", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Uno", false, ["A"]);
+      await addBook(userId, "Dos");
+
+      expect(await listTitles(userId, { tag: "   " })).toHaveLength(2);
+    });
+  });
+
+  describe("When another user has books with that tag", () => {
+    it("Then they should not appear", async () => {
+      await addBook(newUserId(), "Ajeno", false, ["Historia"]);
+
+      expect(await listTitles(newUserId(), { tag: "Historia" })).toEqual([]);
+    });
+  });
+
+  describe("When tag is combined with favorite and search", () => {
+    it("Then all the filters should apply", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Poesía completa", true, ["Poesía"]);
+      await addBook(userId, "Poesía menor", false, ["Poesía"]);
+      await addBook(userId, "Poesía otra", true, ["Ensayo"]);
+
+      expect(
+        await listTitles(userId, {
+          tag: "poesía",
+          favorite: "true",
+          search: "poesia",
+        }),
+      ).toEqual(["Poesía completa"]);
+    });
+  });
+
+  describe("When the tag has more than 100 characters", () => {
+    it("Then it should throw VALIDATION_ERROR on tag", async () => {
+      await expect(
+        BooksService.listLibrary(newUserId(), { tag: "a".repeat(101) }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "tag" });
     });
   });
 });

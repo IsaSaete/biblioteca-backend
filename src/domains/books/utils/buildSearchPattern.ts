@@ -10,7 +10,7 @@ const ACCENT_VARIANTS: Record<string, string> = {
   c: "cç",
 };
 
-const escapeRegex = (text: string): string =>
+export const escapeRegex = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const stripAccents = (text: string): string =>

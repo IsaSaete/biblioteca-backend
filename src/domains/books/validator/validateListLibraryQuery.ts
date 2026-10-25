@@ -15,6 +15,16 @@ const listLibraryQuerySchema = z.object({
     )
     .optional()
     .transform((value) => value || undefined),
+  // Un texto vacío o solo de espacios equivale a no filtrar.
+  tag: z
+    .string("La etiqueta no es válida")
+    .trim()
+    .max(
+      MAX_SEARCH_LENGTH,
+      `La etiqueta no puede tener más de ${MAX_SEARCH_LENGTH} caracteres`,
+    )
+    .optional()
+    .transform((value) => value || undefined),
   // Solo `true` filtra; `false` o ausente equivale a no filtrar.
   favorite: z
     .enum(["true", "false"], "El filtro de favoritos no es válido")
