@@ -9,6 +9,8 @@ const userSchema = new Schema(
     emailVerified: { type: Boolean, required: true, default: false },
     acceptedTermsAt: { type: Date, required: true },
     avatarUrl: { type: String },
+    // Fecha en la que completó o saltó el onboarding; ausente = aún no lo ha visto.
+    onboardingCompletedAt: { type: Date },
     // Las cuentas anteriores a este campo no lo tienen: el valor por defecto se
     // aplica al leer, sin migración.
     preferences: {

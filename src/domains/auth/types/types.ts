@@ -24,6 +24,7 @@ export interface UserDto {
   id: string;
   name: string;
   email: string;
+  onboardingCompleted: boolean;
   preferences: PreferencesDto;
 }
 

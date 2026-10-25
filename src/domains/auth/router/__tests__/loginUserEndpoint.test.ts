@@ -52,6 +52,7 @@ describe("Given the POST /auth/login endpoint", () => {
           id: expect.any(String),
           name: "Isa",
           email: "isa@example.com",
+          onboardingCompleted: false,
           preferences: { libraryView: "grid" },
         },
       });
