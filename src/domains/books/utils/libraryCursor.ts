@@ -2,14 +2,18 @@ import { Types } from "mongoose";
 import ValidationError from "../../../shared/errors/ValidationError.js";
 
 // Órdenes cuyo `value` es un texto (el título); en los demás es una fecha ISO.
-const TEXT_SORTS: ReadonlySet<string> = new Set(["alpha", "book"]);
+const TEXT_SORTS: ReadonlySet<string> = new Set([
+  "alpha",
+  "alpha_desc",
+  "book",
+]);
 
 // Posición del último elemento entregado: el cursor es opaco para el cliente.
 // Sirve a los listados con cursor de Biblioteca y de Citas.
 export interface LibraryCursor {
   sort: string;
   id: string;
-  // Título con un orden alfabético (`alpha`, `book`); fecha ISO con los demás.
+  // Título con un orden alfabético (`alpha`, `alpha_desc`, `book`); fecha ISO con los demás.
   value: string;
 }
 

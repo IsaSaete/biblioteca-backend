@@ -71,6 +71,21 @@ describe("Given the BooksService.listLibrary function", () => {
     });
   });
 
+  describe("When the sort is oldest", () => {
+    it("Then it should list the first added book first", async () => {
+      const userId = newUserId();
+      await addManualBooks(userId, ["Primero", "Segundo", "Tercero"]);
+
+      const page = await BooksService.listLibrary(userId, { sort: "oldest" });
+
+      expect(page.items.map((item) => item.book.title)).toEqual([
+        "Primero",
+        "Segundo",
+        "Tercero",
+      ]);
+    });
+  });
+
   describe("When the sort is alpha", () => {
     it("Then it should order by Book title ignoring case and accents", async () => {
       const userId = newUserId();
@@ -87,8 +102,26 @@ describe("Given the BooksService.listLibrary function", () => {
     });
   });
 
+  describe("When the sort is alpha_desc", () => {
+    it("Then it should order by Book title from Z to A ignoring case and accents", async () => {
+      const userId = newUserId();
+      await addManualBooks(userId, ["zeta", "Álbum", "beta", "Alfa"]);
+
+      const page = await BooksService.listLibrary(userId, {
+        sort: "alpha_desc",
+      });
+
+      expect(page.items.map((item) => item.book.title)).toEqual([
+        "zeta",
+        "beta",
+        "Alfa",
+        "Álbum",
+      ]);
+    });
+  });
+
   describe("When the user has more books than one page", () => {
-    it.each(["recent", "alpha"] as const)(
+    it.each(["recent", "oldest", "alpha", "alpha_desc"] as const)(
       "Then following nextCursor with sort=%s should walk every book exactly once",
       async (sort) => {
         const userId = newUserId();

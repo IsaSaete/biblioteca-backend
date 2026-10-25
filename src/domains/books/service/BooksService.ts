@@ -25,6 +25,7 @@ import type {
   EjemplarDto,
   LibraryItemDto,
   LibraryPageDto,
+  LibrarySort,
   UpdateEjemplarDto,
 } from "../types/types.js";
 
@@ -191,7 +192,7 @@ interface LibraryFilters {
 }
 
 interface LibraryPipelineOptions extends LibraryFilters {
-  sort: "recent" | "alpha";
+  sort: LibrarySort;
   cursor?: ReturnType<typeof decodeLibraryCursor>;
 }
 
@@ -225,43 +226,42 @@ const buildFilteredLibraryStages = (
   ...(search ? buildSearchStages(search) : []),
 ];
 
+// Cada orden recorre un campo en una dirección; el `_id` desempata. El cursor
+// guarda el valor de ese campo del último libro entregado.
+interface LibrarySortRule {
+  path: "createdAt" | "book.title";
+  direction: 1 | -1;
+}
+
+const LIBRARY_SORT_RULES: Record<LibrarySort, LibrarySortRule> = {
+  recent: { path: "createdAt", direction: -1 },
+  oldest: { path: "createdAt", direction: 1 },
+  alpha: { path: "book.title", direction: 1 },
+  alpha_desc: { path: "book.title", direction: -1 },
+};
+
 const buildLibraryPipeline = (
   userId: string,
   { sort, cursor, ...filters }: LibraryPipelineOptions,
 ): PipelineStage[] => {
-  const cursorId = cursor ? new Types.ObjectId(cursor.id) : undefined;
+  const { path, direction } = LIBRARY_SORT_RULES[sort];
   const pipeline = buildFilteredLibraryStages(userId, filters);
 
-  if (sort === "recent") {
-    if (cursor && cursorId) {
-      const createdAt = new Date(cursor.value);
+  if (cursor) {
+    const value = path === "createdAt" ? new Date(cursor.value) : cursor.value;
+    const after = direction === 1 ? "$gt" : "$lt";
 
-      pipeline.push({
-        $match: {
-          $or: [
-            { createdAt: { $lt: createdAt } },
-            { createdAt, _id: { $lt: cursorId } },
-          ],
-        },
-      });
-    }
-
-    pipeline.push({ $sort: { createdAt: -1, _id: -1 } });
-  } else {
-    if (cursor && cursorId) {
-      pipeline.push({
-        $match: {
-          $or: [
-            { "book.title": { $gt: cursor.value } },
-            { "book.title": cursor.value, _id: { $gt: cursorId } },
-          ],
-        },
-      });
-    }
-
-    pipeline.push({ $sort: { "book.title": 1, _id: 1 } });
+    pipeline.push({
+      $match: {
+        $or: [
+          { [path]: { [after]: value } },
+          { [path]: value, _id: { [after]: new Types.ObjectId(cursor.id) } },
+        ],
+      },
+    });
   }
 
+  pipeline.push({ $sort: { [path]: direction, _id: direction } });
   pipeline.push({ $limit: LIBRARY_PAGE_SIZE + 1 });
 
   return pipeline;
@@ -310,7 +310,7 @@ const listLibrary = async (
             sort,
             id: lastRow._id.toString(),
             value:
-              sort === "recent"
+              LIBRARY_SORT_RULES[sort].path === "createdAt"
                 ? lastRow.createdAt.toISOString()
                 : lastRow.book.title,
           })
