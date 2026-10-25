@@ -109,6 +109,28 @@ const updatePreferences = async (
   }
 };
 
+const completeOnboarding = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // authMiddleware garantiza userId; la comprobación estrecha el tipo.
+    if (!req.userId) {
+      throw new UnauthorizedError(
+        "AUTH_UNAUTHENTICATED",
+        "Necesitas iniciar sesión para acceder a este recurso",
+      );
+    }
+
+    await AuthService.completeOnboarding(req.userId);
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 const refresh = async (
   req: Request,
   res: Response,
@@ -189,6 +211,7 @@ const AuthController = {
   login,
   me,
   updatePreferences,
+  completeOnboarding,
   refresh,
   logout,
   forgotPassword,

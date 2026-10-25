@@ -18,6 +18,12 @@ authRouter.patch(
   handleCsrf,
   AuthController.updatePreferences,
 );
+authRouter.post(
+  "/onboarding/complete",
+  authMiddleware,
+  handleCsrf,
+  AuthController.completeOnboarding,
+);
 authRouter.post("/refresh", handleCsrf, AuthController.refresh);
 authRouter.post("/logout", handleCsrf, AuthController.logout);
 authRouter.post(

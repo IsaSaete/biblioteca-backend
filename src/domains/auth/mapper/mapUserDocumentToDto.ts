@@ -20,6 +20,7 @@ const mapUserDocumentToDto = (
   id: user._id.toString(),
   name: user.name,
   email: user.email,
+  onboardingCompleted: Boolean(user.onboardingCompletedAt),
   preferences: mapPreferencesToDto(user),
 });
 
