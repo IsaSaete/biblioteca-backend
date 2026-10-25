@@ -126,13 +126,12 @@ const listQuotes = async (
 
   const total = await Quote.countDocuments(filter);
 
-  if (sort === "book") {
-    const rows = await findQuotesByBook(
-      userId,
-      filter,
+  if (sort === "book" || sort === "book_desc") {
+    const rows = await findQuotesByBook(userId, filter, {
       cursor,
-      QUOTES_PAGE_SIZE + 1,
-    );
+      limit: QUOTES_PAGE_SIZE + 1,
+      sort,
+    });
     const pageRows = rows.slice(0, QUOTES_PAGE_SIZE);
     const lastRow = pageRows.at(-1);
 
@@ -148,7 +147,7 @@ const listQuotes = async (
       }),
       nextCursor:
         rows.length > QUOTES_PAGE_SIZE && lastRow
-          ? encodeBookOrderCursor(lastRow)
+          ? encodeBookOrderCursor(lastRow, sort)
           : null,
       total,
     };

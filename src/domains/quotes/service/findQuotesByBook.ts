@@ -35,9 +35,14 @@ interface BookOrderPosition {
 const invalidCursor = (): ValidationError =>
   new ValidationError("VALIDATION_ERROR", "El cursor no es válido", "cursor");
 
-export const encodeBookOrderCursor = (row: QuoteByBookRow): string =>
+export type BookOrder = "book" | "book_desc";
+
+export const encodeBookOrderCursor = (
+  row: QuoteByBookRow,
+  sort: BookOrder,
+): string =>
   encodeLibraryCursor({
-    sort: "book",
+    sort,
     id: row._id.toString(),
     value: JSON.stringify([
       row.sortRank,
@@ -75,7 +80,10 @@ const parsePosition = (cursor: LibraryCursor): BookOrderPosition => {
   throw invalidCursor();
 };
 
-const buildAfterCursorStage = (cursor: LibraryCursor): PipelineStage => {
+const buildAfterCursorStage = (
+  cursor: LibraryCursor,
+  titleAfter: "$gt" | "$lt",
+): PipelineStage => {
   const { rank, title, ejemplarId, createdAt } = parsePosition(cursor);
   const sameBook = {
     sortRank: rank,
@@ -88,7 +96,7 @@ const buildAfterCursorStage = (cursor: LibraryCursor): PipelineStage => {
     $match: {
       $or: [
         { sortRank: { $gt: rank } },
-        { sortRank: rank, sortTitle: { $gt: title } },
+        { sortRank: rank, sortTitle: { [titleAfter]: title } },
         {
           sortRank: rank,
           sortTitle: title,
@@ -105,13 +113,20 @@ const buildAfterCursorStage = (cursor: LibraryCursor): PipelineStage => {
   };
 };
 
+interface FindQuotesByBookOptions {
+  cursor?: LibraryCursor;
+  limit: number;
+  sort: BookOrder;
+}
+
 // Una tanda (más una) de citas ordenadas por libro. El título se compara sin
-// distinguir mayúsculas ni tildes (collation español).
+// distinguir mayúsculas ni tildes (collation español). Con `book_desc` solo se
+// invierte el orden de los libros: dentro de cada uno las citas siguen en orden
+// de guardado y las citas sin libro siguen al final.
 const findQuotesByBook = (
   userId: string,
   filter: QueryFilter<QuoteDocument>,
-  cursor: LibraryCursor | undefined,
-  limit: number,
+  { cursor, limit, sort }: FindQuotesByBookOptions,
 ): Promise<QuoteByBookRow[]> =>
   Quote.aggregate<QuoteByBookRow>([
     { $match: { ...filter, userId: new Types.ObjectId(userId) } },
@@ -144,11 +159,13 @@ const findQuotesByBook = (
         sortEjemplar: { $ifNull: ["$ejemplarId", NO_BOOK_EJEMPLAR] },
       },
     },
-    ...(cursor ? [buildAfterCursorStage(cursor)] : []),
+    ...(cursor
+      ? [buildAfterCursorStage(cursor, sort === "book" ? "$gt" : "$lt")]
+      : []),
     {
       $sort: {
         sortRank: 1,
-        sortTitle: 1,
+        sortTitle: sort === "book" ? 1 : -1,
         sortEjemplar: 1,
         createdAt: 1,
         _id: 1,

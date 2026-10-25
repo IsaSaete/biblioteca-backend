@@ -82,6 +82,101 @@ describe("Given the QuotesService.listQuotes function with sort=book", () => {
     });
   });
 
+  describe("When the sort is book_desc", () => {
+    it("Then it should invert only the books, keep the saving order inside each one and leave the quotes without a book last", async () => {
+      const userId = newUserId();
+      const zeta = await addBook(userId, "Zeta");
+      const alamo = await addBook(userId, "Álamo", OTHER_EDITION_ISBN_13);
+      await addQuote(userId, zeta.ejemplar.id, "Zeta 1");
+      await addQuote(userId, undefined, "Suelta 1");
+      await addQuote(userId, alamo.ejemplar.id, "Álamo 1");
+      await addQuote(userId, zeta.ejemplar.id, "Zeta 2");
+      await addQuote(userId, undefined, "Suelta 2");
+      await addQuote(userId, alamo.ejemplar.id, "Álamo 2");
+
+      expect(await listTexts(userId, { sort: "book_desc" })).toEqual([
+        "Zeta 1",
+        "Zeta 2",
+        "Álamo 1",
+        "Álamo 2",
+        "Suelta 1",
+        "Suelta 2",
+      ]);
+    });
+  });
+
+  describe("When the sort is book_desc and the user corrected a title", () => {
+    it("Then it should sort by the corrected title", async () => {
+      const userId = newUserId();
+      const first = await addBook(userId, "Aaa original");
+      const second = await addBook(userId, "Mmm", OTHER_EDITION_ISBN_13);
+      await BooksService.updateEjemplar(userId, first.book.id, {
+        overrides: { title: "Zzz corregido" },
+      });
+      await addQuote(userId, first.ejemplar.id, "Del primero");
+      await addQuote(userId, second.ejemplar.id, "Del segundo");
+
+      expect(await listTexts(userId, { sort: "book_desc" })).toEqual([
+        "Del primero",
+        "Del segundo",
+      ]);
+    });
+  });
+
+  describe("When the sort is book_desc and the quotes are more than one page", () => {
+    it("Then the cursor should walk the whole order without repeating or skipping any", async () => {
+      const userId = newUserId();
+      const beta = await addBook(userId, "Beta");
+      const alfa = await addBook(userId, "Alfa", OTHER_EDITION_ISBN_13);
+      const expected: string[] = [];
+
+      for (let index = 0; index < 15; index += 1) {
+        await addQuote(userId, beta.ejemplar.id, `Beta ${index}`);
+        await addQuote(userId, alfa.ejemplar.id, `Alfa ${index}`);
+      }
+      await addQuote(userId, undefined, "Suelta");
+      for (let index = 0; index < 15; index += 1)
+        expected.push(`Beta ${index}`);
+      for (let index = 0; index < 15; index += 1)
+        expected.push(`Alfa ${index}`);
+      expected.push("Suelta");
+
+      const first = await QuotesService.listQuotes(userId, {
+        sort: "book_desc",
+      });
+      const second = await QuotesService.listQuotes(userId, {
+        sort: "book_desc",
+        cursor: first.nextCursor,
+      });
+
+      expect(first.items).toHaveLength(QUOTES_PAGE_SIZE);
+      expect(second.nextCursor).toBeNull();
+      expect(
+        [...first.items, ...second.items].map((quote) => quote.text),
+      ).toEqual(expected);
+    });
+  });
+
+  describe("When a cursor from book is used with book_desc", () => {
+    it("Then it should throw VALIDATION_ERROR on cursor", async () => {
+      const userId = newUserId();
+      const { ejemplar } = await addBook(userId, "Beta");
+      for (let index = 0; index <= QUOTES_PAGE_SIZE; index += 1) {
+        await addQuote(userId, ejemplar.id, `Cita ${index}`);
+      }
+      const ascending = await QuotesService.listQuotes(userId, {
+        sort: "book",
+      });
+
+      await expect(
+        QuotesService.listQuotes(userId, {
+          sort: "book_desc",
+          cursor: ascending.nextCursor,
+        }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "cursor" });
+    });
+  });
+
   describe("When the user corrected the title of a book", () => {
     it("Then it should sort by the corrected title", async () => {
       const userId = newUserId();

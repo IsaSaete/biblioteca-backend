@@ -21,7 +21,7 @@ export interface UpdateQuoteDto {
   source?: string | null;
 }
 
-export type QuotesSort = "recent" | "oldest" | "book";
+export type QuotesSort = "recent" | "oldest" | "book" | "book_desc";
 
 export interface ListQuotesQuery {
   bookId?: string;

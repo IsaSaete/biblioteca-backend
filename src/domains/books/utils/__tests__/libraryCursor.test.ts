@@ -11,6 +11,7 @@ describe("Given the library cursor functions", () => {
       ["alpha", "Cien años de soledad"],
       ["alpha_desc", "Cien años de soledad"],
       ["book", "Cien años de soledad"],
+      ["book_desc", "Cien años de soledad"],
     ])("Then it should return the same position for %s", (sort, value) => {
       const raw = encodeLibraryCursor({ sort, id, value });
 

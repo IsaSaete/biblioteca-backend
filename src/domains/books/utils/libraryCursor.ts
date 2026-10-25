@@ -6,6 +6,7 @@ const TEXT_SORTS: ReadonlySet<string> = new Set([
   "alpha",
   "alpha_desc",
   "book",
+  "book_desc",
 ]);
 
 // Posición del último elemento entregado: el cursor es opaco para el cliente.
@@ -13,7 +14,7 @@ const TEXT_SORTS: ReadonlySet<string> = new Set([
 export interface LibraryCursor {
   sort: string;
   id: string;
-  // Título con un orden alfabético (`alpha`, `alpha_desc`, `book`); fecha ISO con los demás.
+  // Título con un orden alfabético (`alpha`, `alpha_desc`, `book`, `book_desc`); fecha ISO con los demás.
   value: string;
 }
 
