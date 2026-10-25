@@ -11,7 +11,9 @@ import mapEjemplarToDto, {
 import validateCreateBookDto from "../validator/validateCreateBookDto.js";
 import validateUpdateEjemplarDto from "../validator/validateUpdateEjemplarDto.js";
 import validateListLibraryQuery from "../validator/validateListLibraryQuery.js";
-import buildSearchPattern from "../utils/buildSearchPattern.js";
+import buildSearchPattern, {
+  escapeRegex,
+} from "../utils/buildSearchPattern.js";
 import {
   decodeLibraryCursor,
   encodeLibraryCursor,
@@ -184,12 +186,13 @@ interface LibraryPipelineOptions {
   sort: "recent" | "alpha";
   cursor?: ReturnType<typeof decodeLibraryCursor>;
   search?: string;
+  tag?: string;
   favorite?: boolean;
 }
 
 const buildLibraryPipeline = (
   userId: string,
-  { sort, cursor, search, favorite }: LibraryPipelineOptions,
+  { sort, cursor, search, tag, favorite }: LibraryPipelineOptions,
 ): PipelineStage[] => {
   const cursorId = cursor ? new Types.ObjectId(cursor.id) : undefined;
   const pipeline: PipelineStage[] = [
@@ -197,6 +200,10 @@ const buildLibraryPipeline = (
       $match: {
         userId: new Types.ObjectId(userId),
         ...(favorite && { favorite: true }),
+        // Etiqueta completa, sin distinguir mayúsculas.
+        ...(tag && {
+          tags: { $regex: `^${escapeRegex(tag)}$`, $options: "i" },
+        }),
       },
     },
     {
@@ -252,6 +259,7 @@ const listLibrary = async (
 ): Promise<LibraryPageDto> => {
   const {
     search,
+    tag,
     favorite,
     sort,
     cursor: rawCursor,
@@ -260,7 +268,7 @@ const listLibrary = async (
 
   // La ordenación alfabética ignora mayúsculas y acentos (collation español).
   const rows = await Ejemplar.aggregate<LibraryRow>(
-    buildLibraryPipeline(userId, { sort, cursor, search, favorite }),
+    buildLibraryPipeline(userId, { sort, cursor, search, tag, favorite }),
   ).collation({ locale: "es", strength: 1 });
 
   const pageRows = rows.slice(0, LIBRARY_PAGE_SIZE);
