@@ -84,6 +84,31 @@ const me = async (
   }
 };
 
+const updatePreferences = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // authMiddleware garantiza userId; la comprobación estrecha el tipo.
+    if (!req.userId) {
+      throw new UnauthorizedError(
+        "AUTH_UNAUTHENTICATED",
+        "Necesitas iniciar sesión para acceder a este recurso",
+      );
+    }
+
+    const preferences = await AuthService.updatePreferences(
+      req.userId,
+      req.body,
+    );
+
+    res.status(200).json({ preferences });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const refresh = async (
   req: Request,
   res: Response,
@@ -163,6 +188,7 @@ const AuthController = {
   verifyEmail,
   login,
   me,
+  updatePreferences,
   refresh,
   logout,
   forgotPassword,

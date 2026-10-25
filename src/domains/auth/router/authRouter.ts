@@ -12,6 +12,12 @@ authRouter.post("/register", limitRegisterRequests, AuthController.register);
 authRouter.get("/verify-email", AuthController.verifyEmail);
 authRouter.post("/login", limitLoginRequests, AuthController.login);
 authRouter.get("/me", authMiddleware, AuthController.me);
+authRouter.patch(
+  "/me/preferences",
+  authMiddleware,
+  handleCsrf,
+  AuthController.updatePreferences,
+);
 authRouter.post("/refresh", handleCsrf, AuthController.refresh);
 authRouter.post("/logout", handleCsrf, AuthController.logout);
 authRouter.post(

@@ -12,12 +12,15 @@ import {
   verifyRefreshToken,
 } from "../../../utils/tokens.js";
 import User from "../model/User.js";
-import mapUserDocumentToDto from "../mapper/mapUserDocumentToDto.js";
+import mapUserDocumentToDto, {
+  mapPreferencesToDto,
+} from "../mapper/mapUserDocumentToDto.js";
 import validateForgotPasswordDto from "../validator/validateForgotPasswordDto.js";
 import validateLoginDto from "../validator/validateLoginDto.js";
 import validateRegisterDto from "../validator/validateRegisterDto.js";
 import validateResetPasswordDto from "../validator/validateResetPasswordDto.js";
-import type { SessionTokens, UserDto } from "../types/types.js";
+import validateUpdatePreferencesDto from "../validator/validateUpdatePreferencesDto.js";
+import type { PreferencesDto, SessionTokens, UserDto } from "../types/types.js";
 
 const BCRYPT_COST = 12;
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
@@ -132,6 +135,27 @@ const getCurrentUser = async (userId: string): Promise<UserDto> => {
   }
 
   return mapUserDocumentToDto(user);
+};
+
+const updatePreferences = async (
+  userId: string,
+  body: unknown,
+): Promise<PreferencesDto> => {
+  const dto = validateUpdatePreferencesDto(body);
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    dto.libraryView
+      ? { $set: { "preferences.libraryView": dto.libraryView } }
+      : {},
+    { returnDocument: "after" },
+  );
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  return mapPreferencesToDto(user);
 };
 
 // Rota el refresh token: el presentado solo sirve si su hash es el vigente y
@@ -261,6 +285,7 @@ const AuthService = {
   verifyEmail,
   loginUser,
   getCurrentUser,
+  updatePreferences,
   refreshSession,
   logoutUser,
   requestPasswordReset,
