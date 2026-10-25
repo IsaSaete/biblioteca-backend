@@ -182,44 +182,54 @@ const buildSearchStages = (search: string): PipelineStage[] => {
   ];
 };
 
-interface LibraryPipelineOptions {
-  sort: "recent" | "alpha";
-  cursor?: ReturnType<typeof decodeLibraryCursor>;
+interface LibraryFilters {
   search?: string;
   tag?: string;
   untagged?: boolean;
   favorite?: boolean;
 }
 
+interface LibraryPipelineOptions extends LibraryFilters {
+  sort: "recent" | "alpha";
+  cursor?: ReturnType<typeof decodeLibraryCursor>;
+}
+
+// Los libros del usuario que cumplen los filtros, con su Libro unido. Es la
+// base de la tanda y del recuento total, para que ambos coincidan siempre.
+const buildFilteredLibraryStages = (
+  userId: string,
+  { search, tag, untagged, favorite }: LibraryFilters,
+): PipelineStage[] => [
+  {
+    $match: {
+      userId: new Types.ObjectId(userId),
+      ...(favorite && { favorite: true }),
+      // Sin etiquetas: ausente, nulo o vacío.
+      ...(untagged && { tags: { $in: [null, []] } }),
+      // Etiqueta completa, sin distinguir mayúsculas.
+      ...(tag && {
+        tags: { $regex: `^${escapeRegex(tag)}$`, $options: "i" },
+      }),
+    },
+  },
+  {
+    $lookup: {
+      from: Book.collection.name,
+      localField: "bookId",
+      foreignField: "_id",
+      as: "book",
+    },
+  },
+  { $unwind: "$book" },
+  ...(search ? buildSearchStages(search) : []),
+];
+
 const buildLibraryPipeline = (
   userId: string,
-  { sort, cursor, search, tag, untagged, favorite }: LibraryPipelineOptions,
+  { sort, cursor, ...filters }: LibraryPipelineOptions,
 ): PipelineStage[] => {
   const cursorId = cursor ? new Types.ObjectId(cursor.id) : undefined;
-  const pipeline: PipelineStage[] = [
-    {
-      $match: {
-        userId: new Types.ObjectId(userId),
-        ...(favorite && { favorite: true }),
-        // Sin etiquetas: ausente, nulo o vacío.
-        ...(untagged && { tags: { $in: [null, []] } }),
-        // Etiqueta completa, sin distinguir mayúsculas.
-        ...(tag && {
-          tags: { $regex: `^${escapeRegex(tag)}$`, $options: "i" },
-        }),
-      },
-    },
-    {
-      $lookup: {
-        from: Book.collection.name,
-        localField: "bookId",
-        foreignField: "_id",
-        as: "book",
-      },
-    },
-    { $unwind: "$book" },
-    ...(search ? buildSearchStages(search) : []),
-  ];
+  const pipeline = buildFilteredLibraryStages(userId, filters);
 
   if (sort === "recent") {
     if (cursor && cursorId) {
@@ -270,17 +280,19 @@ const listLibrary = async (
   } = validateListLibraryQuery(query);
   const cursor = rawCursor ? decodeLibraryCursor(rawCursor, sort) : undefined;
 
+  const filters = { search, tag, untagged, favorite };
+
   // La ordenación alfabética ignora mayúsculas y acentos (collation español).
-  const rows = await Ejemplar.aggregate<LibraryRow>(
-    buildLibraryPipeline(userId, {
-      sort,
-      cursor,
-      search,
-      tag,
-      untagged,
-      favorite,
-    }),
-  ).collation({ locale: "es", strength: 1 });
+  const [rows, totals] = await Promise.all([
+    Ejemplar.aggregate<LibraryRow>(
+      buildLibraryPipeline(userId, { sort, cursor, ...filters }),
+    ).collation({ locale: "es", strength: 1 }),
+    // El total ignora el cursor: cuenta todos los libros que cumplen los filtros.
+    Ejemplar.aggregate<{ total: number }>([
+      ...buildFilteredLibraryStages(userId, filters),
+      { $count: "total" },
+    ]),
+  ]);
 
   const pageRows = rows.slice(0, LIBRARY_PAGE_SIZE);
   const lastRow = pageRows.at(-1);
@@ -302,6 +314,7 @@ const listLibrary = async (
                 : lastRow.book.title,
           })
         : null,
+    total: totals[0]?.total ?? 0,
   };
 };
 

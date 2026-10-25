@@ -196,7 +196,7 @@ describe("Given the POST /books endpoint", () => {
 
 describe("Given the GET /books endpoint", () => {
   describe("When the user has books", () => {
-    it("Then it should respond 200 with { items: [{ book, ejemplar }], nextCursor: null }", async () => {
+    it("Then it should respond 200 with { items: [{ book, ejemplar }], nextCursor: null, total: 1 }", async () => {
       const { cookie } = createSessionCookie();
       await postBook(cookie, buildCreateBookDto());
 
@@ -211,7 +211,33 @@ describe("Given the GET /books endpoint", () => {
           },
         ],
         nextCursor: null,
+        total: 1,
       });
+    });
+  });
+
+  describe("When the user filters and the total is requested", () => {
+    it("Then total should count all the matching books, not only the page", async () => {
+      const { cookie, userId } = createSessionCookie();
+      await Ejemplar.insertMany(
+        await Promise.all(
+          Array.from({ length: LIBRARY_PAGE_SIZE + 1 }, async (_, index) => {
+            const book = await Book.create(
+              buildManualBookDto({ title: `Favorito ${index}` }),
+            );
+
+            return { userId, bookId: book._id, favorite: true };
+          }),
+        ),
+      );
+
+      const response = await request(app)
+        .get("/books")
+        .query({ favorite: "true" })
+        .set("Cookie", cookie);
+
+      expect(response.body.items).toHaveLength(LIBRARY_PAGE_SIZE);
+      expect(response.body.total).toBe(LIBRARY_PAGE_SIZE + 1);
     });
   });
 

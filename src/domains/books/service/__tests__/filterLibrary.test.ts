@@ -83,7 +83,7 @@ describe("Given the BooksService.listLibrary function with favorite", () => {
 
       expect(
         await BooksService.listLibrary(userId, { favorite: "true" }),
-      ).toEqual({ items: [], nextCursor: null });
+      ).toEqual({ items: [], nextCursor: null, total: 0 });
     });
   });
 
@@ -267,7 +267,7 @@ describe("Given the BooksService.listLibrary function with untagged", () => {
 
       expect(
         await BooksService.listLibrary(userId, { untagged: "true" }),
-      ).toEqual({ items: [], nextCursor: null });
+      ).toEqual({ items: [], nextCursor: null, total: 0 });
     });
   });
 
@@ -308,6 +308,59 @@ describe("Given the BooksService.listLibrary function with untagged", () => {
       await expect(
         BooksService.listLibrary(newUserId(), { untagged: "quizás" }),
       ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "untagged" });
+    });
+  });
+});
+
+describe("Given the BooksService.listLibrary function and the total", () => {
+  describe("When the library has more books than one page", () => {
+    it("Then total should be the whole library on every page", async () => {
+      const userId = newUserId();
+      for (let index = 0; index < 25; index += 1) {
+        await addBook(userId, `Libro ${index}`);
+      }
+
+      const first = await BooksService.listLibrary(userId, {});
+      const second = await BooksService.listLibrary(userId, {
+        cursor: first.nextCursor,
+      });
+
+      expect(first.total).toBe(25);
+      expect(second.items).toHaveLength(1);
+      expect(second.total).toBe(25);
+    });
+  });
+
+  describe("When filters and search are applied", () => {
+    it("Then total should count only the books that match all of them", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Poesía completa", true, ["Poesía"]);
+      await addBook(userId, "Poesía menor", false, ["Poesía"]);
+      await addBook(userId, "Novela", true);
+
+      const both = await BooksService.listLibrary(userId, {
+        favorite: "true",
+        search: "poesia",
+      });
+
+      expect(both.total).toBe(1);
+      expect(
+        (await BooksService.listLibrary(userId, { favorite: "true" })).total,
+      ).toBe(2);
+      expect(
+        (await BooksService.listLibrary(userId, { tag: "poesía" })).total,
+      ).toBe(2);
+      expect(
+        (await BooksService.listLibrary(userId, { untagged: "true" })).total,
+      ).toBe(1);
+    });
+  });
+
+  describe("When another user has books", () => {
+    it("Then total should not count them", async () => {
+      await addBook(newUserId(), "Ajeno");
+
+      expect((await BooksService.listLibrary(newUserId(), {})).total).toBe(0);
     });
   });
 });
