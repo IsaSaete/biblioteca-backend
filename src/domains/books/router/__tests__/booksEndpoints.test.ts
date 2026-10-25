@@ -294,6 +294,26 @@ describe("Given the GET /books endpoint", () => {
     });
   });
 
+  describe("When the sort is oldest", () => {
+    it("Then it should respond 200 with the first added book first", async () => {
+      const { cookie } = createSessionCookie();
+      await postBook(cookie, buildManualBookDto({ title: "Primero" }));
+      await postBook(cookie, buildManualBookDto({ title: "Segundo" }));
+
+      const response = await request(app)
+        .get("/books")
+        .query({ sort: "oldest" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(
+        response.body.items.map(
+          (item: { book: { title: string } }) => item.book.title,
+        ),
+      ).toEqual(["Primero", "Segundo"]);
+    });
+  });
+
   describe("When the user searches by a word of the title or author", () => {
     it("Then it should respond 200 with only the matching books", async () => {
       const { cookie } = createSessionCookie();

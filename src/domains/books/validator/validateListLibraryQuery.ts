@@ -37,7 +37,7 @@ const listLibraryQuerySchema = z
       .default("false")
       .transform((value) => value === "true"),
     sort: z
-      .enum(["recent", "alpha"], "El orden no es válido")
+      .enum(["recent", "oldest", "alpha"], "El orden no es válido")
       .default("recent"),
     cursor: z.string().min(1, "El cursor no es válido").optional(),
   })

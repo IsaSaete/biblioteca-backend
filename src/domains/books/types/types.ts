@@ -113,7 +113,7 @@ export interface BookTagsDto {
   untaggedCount: number;
 }
 
-export type LibrarySort = "recent" | "alpha";
+export type LibrarySort = "recent" | "oldest" | "alpha";
 
 export interface ListLibraryQuery {
   search?: string;
