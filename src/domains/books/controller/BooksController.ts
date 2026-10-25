@@ -48,6 +48,20 @@ const listLibrary = async (
   }
 };
 
+const listTags = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const tags = await BooksService.listTags(getSessionUserId(req));
+
+    res.status(200).json(tags);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getBook = async (
   req: Request<{ id: string }>,
   res: Response,
@@ -100,6 +114,7 @@ const deleteBook = async (
 const BooksController = {
   createBook,
   listLibrary,
+  listTags,
   getBook,
   updateEjemplar,
   deleteBook,

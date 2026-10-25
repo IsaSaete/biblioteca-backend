@@ -20,6 +20,7 @@ import {
 } from "../utils/libraryCursor.js";
 import type {
   BookEditableFields,
+  BookTagsDto,
   CreateBookDto,
   EjemplarDto,
   LibraryItemDto,
@@ -318,6 +319,42 @@ const listLibrary = async (
   };
 };
 
+// Etiquetas en uso con el número de libros de cada una. "Sci-Fi" y "sci-fi" son
+// la misma etiqueta: se muestra la grafía más usada (la primera si empatan).
+const listTags = async (userId: string): Promise<BookTagsDto> => {
+  const ejemplares = await Ejemplar.find({ userId }, { tags: 1 }).lean();
+
+  const groups = new Map<string, Map<string, number>>();
+  let untaggedCount = 0;
+
+  for (const { tags } of ejemplares) {
+    if (!tags || tags.length === 0) {
+      untaggedCount += 1;
+    }
+
+    for (const tag of tags ?? []) {
+      const key = tag.toLocaleLowerCase("es");
+      const spellings = groups.get(key) ?? new Map<string, number>();
+
+      spellings.set(tag, (spellings.get(tag) ?? 0) + 1);
+      groups.set(key, spellings);
+    }
+  }
+
+  const collator = new Intl.Collator("es", { sensitivity: "base" });
+
+  const items = [...groups.values()].map((spellings) => {
+    const [tag] = [...spellings.entries()].sort((a, b) => b[1] - a[1])[0];
+    const count = [...spellings.values()].reduce((sum, uses) => sum + uses, 0);
+
+    return { tag, count };
+  });
+
+  items.sort((a, b) => b.count - a.count || collator.compare(a.tag, b.tag));
+
+  return { items, untaggedCount };
+};
+
 // Un id mal formado o de otro usuario es lo mismo para el cliente: ese libro no
 // está en su biblioteca.
 const getBook = async (
@@ -437,6 +474,7 @@ const deleteBook = async (userId: string, bookId: string): Promise<void> => {
 const BooksService = {
   createBook,
   listLibrary,
+  listTags,
   getBook,
   updateEjemplar,
   deleteBook,

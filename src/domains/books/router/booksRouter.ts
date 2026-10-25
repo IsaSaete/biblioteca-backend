@@ -33,6 +33,8 @@ export const createBooksRouter = (
     externalBooksController.searchExternal,
   );
   booksRouter.get("/", BooksController.listLibrary);
+  // Antes de "/:id": si no, "tags" se leería como un id de libro.
+  booksRouter.get("/tags", BooksController.listTags);
   booksRouter.get("/:id", BooksController.getBook);
   booksRouter.patch(
     "/:id/ejemplar",
