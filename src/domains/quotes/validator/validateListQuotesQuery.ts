@@ -10,7 +10,7 @@ const listQuotesQuerySchema = z
       .default("false")
       .transform((value) => value === "true"),
     sort: z
-      .enum(["recent", "oldest"], "El orden no es válido")
+      .enum(["recent", "oldest", "book"], "El orden no es válido")
       .default("recent"),
     cursor: z.string().min(1, "El cursor no es válido").optional(),
   })

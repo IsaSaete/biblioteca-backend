@@ -246,6 +246,43 @@ describe("Given the GET /quotes endpoint", () => {
     });
   });
 
+  describe("When the sort is book", () => {
+    it("Then it should respond 200 with the quotes grouped by book title and the ones without a book last", async () => {
+      const { cookie, userId } = createSessionCookie();
+      const zeta = await BooksService.createBook(
+        userId,
+        buildCreateBookDto({ title: "Zeta" }),
+      );
+      const alfa = await BooksService.createBook(
+        userId,
+        buildCreateBookDto({ isbn: undefined, title: "Alfa" }),
+      );
+      await postQuote(
+        cookie,
+        buildCreateQuoteDto(zeta.ejemplar.id, { text: "De Zeta" }),
+      );
+      await postQuote(
+        cookie,
+        buildCreateQuoteDto(undefined, { text: "Suelta" }),
+      );
+      await postQuote(
+        cookie,
+        buildCreateQuoteDto(alfa.ejemplar.id, { text: "De Alfa" }),
+      );
+
+      const response = await request(app)
+        .get("/quotes")
+        .query({ sort: "book" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(
+        response.body.items.map((quote: { text: string }) => quote.text),
+      ).toEqual(["De Alfa", "De Zeta", "Suelta"]);
+      expect(response.body.total).toBe(3);
+    });
+  });
+
   describe("When the sort is not valid", () => {
     it("Then it should respond 400 VALIDATION_ERROR with field sort", async () => {
       const { cookie } = createSessionCookie();
