@@ -11,6 +11,7 @@ import {
 } from "../../books/utils/libraryCursor.js";
 import Quote, { type QuoteDocument } from "../model/Quote.js";
 import mapQuoteToDto from "../mapper/mapQuoteToDto.js";
+import findQuotesByBook, { encodeBookOrderCursor } from "./findQuotesByBook.js";
 import validateCreateQuoteDto from "../validator/validateCreateQuoteDto.js";
 import validateUpdateQuoteDto from "../validator/validateUpdateQuoteDto.js";
 import validateListQuotesQuery from "../validator/validateListQuotesQuery.js";
@@ -124,6 +125,34 @@ const listQuotes = async (
   const filter = await buildQuotesFilter(userId, { bookId, unlinked });
 
   const total = await Quote.countDocuments(filter);
+
+  if (sort === "book") {
+    const rows = await findQuotesByBook(
+      userId,
+      filter,
+      cursor,
+      QUOTES_PAGE_SIZE + 1,
+    );
+    const pageRows = rows.slice(0, QUOTES_PAGE_SIZE);
+    const lastRow = pageRows.at(-1);
+
+    return {
+      items: pageRows.flatMap((row) => {
+        if (!row.ejemplarId) {
+          return [mapQuoteToDto(row)];
+        }
+
+        return row.ejemplar && row.book
+          ? [mapQuoteToDto(row, row.ejemplar, row.book)]
+          : [];
+      }),
+      nextCursor:
+        rows.length > QUOTES_PAGE_SIZE && lastRow
+          ? encodeBookOrderCursor(lastRow)
+          : null,
+      total,
+    };
+  }
 
   const pageFilter: QueryFilter<QuoteDocument> = cursor
     ? {
