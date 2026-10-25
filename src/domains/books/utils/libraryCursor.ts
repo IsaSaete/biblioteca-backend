@@ -1,12 +1,15 @@
 import { Types } from "mongoose";
 import ValidationError from "../../../shared/errors/ValidationError.js";
-import type { LibrarySort } from "../types/types.js";
+
+// Órdenes cuyo `value` es un texto (el título); en los demás es una fecha ISO.
+const TEXT_SORTS: ReadonlySet<string> = new Set(["alpha", "book"]);
 
 // Posición del último elemento entregado: el cursor es opaco para el cliente.
+// Sirve a los listados con cursor de Biblioteca y de Citas.
 export interface LibraryCursor {
-  sort: LibrarySort;
+  sort: string;
   id: string;
-  // Fecha de alta (ISO) con sort=recent; título del Libro con sort=alpha.
+  // Título con un orden alfabético (`alpha`, `book`); fecha ISO con los demás.
   value: string;
 }
 
@@ -18,7 +21,7 @@ export const encodeLibraryCursor = (cursor: LibraryCursor): string =>
 
 export const decodeLibraryCursor = (
   rawCursor: string,
-  sort: LibrarySort,
+  sort: string,
 ): LibraryCursor => {
   try {
     const parsed: unknown = JSON.parse(
@@ -35,7 +38,7 @@ export const decodeLibraryCursor = (
       typeof parsed.id === "string" &&
       Types.ObjectId.isValid(parsed.id) &&
       typeof parsed.value === "string" &&
-      (sort === "alpha" || !Number.isNaN(Date.parse(parsed.value)))
+      (TEXT_SORTS.has(sort) || !Number.isNaN(Date.parse(parsed.value)))
     ) {
       return { sort, id: parsed.id, value: parsed.value };
     }

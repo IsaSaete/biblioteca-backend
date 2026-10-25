@@ -9,6 +9,9 @@ const listQuotesQuerySchema = z
       .enum(["true", "false"], "El filtro no es válido")
       .default("false")
       .transform((value) => value === "true"),
+    sort: z
+      .enum(["recent", "oldest"], "El orden no es válido")
+      .default("recent"),
     cursor: z.string().min(1, "El cursor no es válido").optional(),
   })
   .refine((query) => !query.unlinked || !query.bookId, {
