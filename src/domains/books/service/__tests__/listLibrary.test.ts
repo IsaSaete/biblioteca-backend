@@ -39,7 +39,7 @@ describe("Given the BooksService.listLibrary function", () => {
     it("Then it should return an empty page without next cursor", async () => {
       const page = await BooksService.listLibrary(newUserId(), {});
 
-      expect(page).toEqual({ items: [], nextCursor: null });
+      expect(page).toEqual({ items: [], nextCursor: null, total: 0 });
     });
   });
 

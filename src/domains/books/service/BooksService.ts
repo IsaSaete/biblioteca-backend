@@ -280,17 +280,19 @@ const listLibrary = async (
   } = validateListLibraryQuery(query);
   const cursor = rawCursor ? decodeLibraryCursor(rawCursor, sort) : undefined;
 
+  const filters = { search, tag, untagged, favorite };
+
   // La ordenación alfabética ignora mayúsculas y acentos (collation español).
-  const rows = await Ejemplar.aggregate<LibraryRow>(
-    buildLibraryPipeline(userId, {
-      sort,
-      cursor,
-      search,
-      tag,
-      untagged,
-      favorite,
-    }),
-  ).collation({ locale: "es", strength: 1 });
+  const [rows, totals] = await Promise.all([
+    Ejemplar.aggregate<LibraryRow>(
+      buildLibraryPipeline(userId, { sort, cursor, ...filters }),
+    ).collation({ locale: "es", strength: 1 }),
+    // El total ignora el cursor: cuenta todos los libros que cumplen los filtros.
+    Ejemplar.aggregate<{ total: number }>([
+      ...buildFilteredLibraryStages(userId, filters),
+      { $count: "total" },
+    ]),
+  ]);
 
   const pageRows = rows.slice(0, LIBRARY_PAGE_SIZE);
   const lastRow = pageRows.at(-1);
@@ -312,6 +314,7 @@ const listLibrary = async (
                 : lastRow.book.title,
           })
         : null,
+    total: totals[0]?.total ?? 0,
   };
 };
 

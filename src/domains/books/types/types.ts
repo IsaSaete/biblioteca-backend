@@ -100,6 +100,7 @@ export interface LibraryItemDto {
 export interface LibraryPageDto {
   items: LibraryItemDto[];
   nextCursor: string | null;
+  total: number;
 }
 
 export type LibrarySort = "recent" | "alpha";
