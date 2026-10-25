@@ -46,6 +46,7 @@ describe("Given the POST /auth/register endpoint", () => {
           id: expect.any(String),
           name: dto.name,
           email: dto.email,
+          preferences: { libraryView: "grid" },
         },
       });
       expect(response.body.user.passwordHash).toBeUndefined();

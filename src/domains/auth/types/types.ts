@@ -5,10 +5,21 @@ export interface RegisterUserDto {
   acceptedTerms: boolean;
 }
 
+export const LIBRARY_VIEWS = ["grid", "list"] as const;
+
+export const DEFAULT_LIBRARY_VIEW = "grid";
+
+export type LibraryView = (typeof LIBRARY_VIEWS)[number];
+
+export interface PreferencesDto {
+  libraryView: LibraryView;
+}
+
 export interface UserDto {
   id: string;
   name: string;
   email: string;
+  preferences: PreferencesDto;
 }
 
 export interface LoginUserDto {

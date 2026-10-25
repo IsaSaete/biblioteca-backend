@@ -45,7 +45,12 @@ describe("Given the GET /auth/me endpoint", () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
-        user: { id: expect.any(String), name: "Isa", email: "isa@example.com" },
+        user: {
+          id: expect.any(String),
+          name: "Isa",
+          email: "isa@example.com",
+          preferences: { libraryView: "grid" },
+        },
       });
     });
   });
