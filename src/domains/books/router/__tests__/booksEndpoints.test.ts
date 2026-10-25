@@ -292,6 +292,51 @@ describe("Given the GET /books endpoint", () => {
     });
   });
 
+  describe("When the user filters by favorite=true", () => {
+    it("Then it should respond 200 with only their favorite books", async () => {
+      const { cookie } = createSessionCookie();
+      const favorite = await postBook(
+        cookie,
+        buildManualBookDto({ title: "Favorito" }),
+      );
+      await postBook(cookie, buildManualBookDto({ title: "Normal" }));
+      await request(app)
+        .patch(`/books/${favorite.body.book.id}/ejemplar`)
+        .set("Cookie", cookie)
+        .set("X-CSRF-Token", CSRF_TOKEN)
+        .send({ favorite: true });
+
+      const response = await request(app)
+        .get("/books")
+        .query({ favorite: "true" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(
+        response.body.items.map(
+          (item: { book: { title: string } }) => item.book.title,
+        ),
+      ).toEqual(["Favorito"]);
+    });
+  });
+
+  describe("When favorite has an unknown value", () => {
+    it("Then it should respond 400 with VALIDATION_ERROR on favorite", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/books")
+        .query({ favorite: "quizás" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "favorite",
+      });
+    });
+  });
+
   describe("When the search is too long", () => {
     it("Then it should respond 400 with VALIDATION_ERROR on search", async () => {
       const { cookie } = createSessionCookie();

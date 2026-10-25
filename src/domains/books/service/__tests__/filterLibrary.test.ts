@@ -1,0 +1,136 @@
+import { Types } from "mongoose";
+import {
+  clearMemoryDatabase,
+  connectToMemoryDatabase,
+  disconnectMemoryDatabase,
+} from "../../../../test/memoryDatabase.js";
+import Book from "../../model/Book.js";
+import Ejemplar from "../../model/Ejemplar.js";
+import BooksService from "../BooksService.js";
+import { buildManualBookDto } from "../../fixtures/books.fixtures.js";
+
+beforeAll(async () => {
+  await connectToMemoryDatabase();
+  await Book.init();
+  await Ejemplar.init();
+});
+
+afterEach(async () => {
+  await clearMemoryDatabase();
+});
+
+afterAll(async () => {
+  await disconnectMemoryDatabase();
+});
+
+const newUserId = (): string => new Types.ObjectId().toString();
+
+const addBook = async (
+  userId: string,
+  title: string,
+  favorite = false,
+): Promise<void> => {
+  const { book } = await BooksService.createBook(
+    userId,
+    buildManualBookDto({ title }),
+  );
+
+  if (favorite) {
+    await BooksService.updateEjemplar(userId, book.id, { favorite: true });
+  }
+};
+
+const listTitles = async (userId: string, query: object) => {
+  const page = await BooksService.listLibrary(userId, query);
+
+  return page.items.map((item) => item.book.title);
+};
+
+describe("Given the BooksService.listLibrary function with favorite", () => {
+  describe("When the user filters by favorite=true", () => {
+    it("Then it should return only their favorite books", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Favorito", true);
+      await addBook(userId, "Normal");
+
+      expect(await listTitles(userId, { favorite: "true" })).toEqual([
+        "Favorito",
+      ]);
+    });
+  });
+
+  describe.each([
+    ["favorite=false", { favorite: "false" }],
+    ["no favorite parameter", {}],
+  ])("When the query has %s", (_case, query) => {
+    it("Then it should not filter", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Favorito", true);
+      await addBook(userId, "Normal");
+
+      expect(await listTitles(userId, query)).toHaveLength(2);
+    });
+  });
+
+  describe("When the user has no favorites", () => {
+    it("Then it should return an empty page without error", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Normal");
+
+      expect(
+        await BooksService.listLibrary(userId, { favorite: "true" }),
+      ).toEqual({ items: [], nextCursor: null });
+    });
+  });
+
+  describe("When another user has favorite books", () => {
+    it("Then they should not appear", async () => {
+      await addBook(newUserId(), "Ajeno", true);
+
+      expect(await listTitles(newUserId(), { favorite: "true" })).toEqual([]);
+    });
+  });
+
+  describe("When favorite is combined with search", () => {
+    it("Then both filters should apply", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Poesía completa", true);
+      await addBook(userId, "Poesía menor");
+      await addBook(userId, "Novela", true);
+
+      expect(
+        await listTitles(userId, { favorite: "true", search: "poesia" }),
+      ).toEqual(["Poesía completa"]);
+    });
+  });
+
+  describe("When the favorites are more than one page and the cursor is used", () => {
+    it("Then it should paginate only the favorites", async () => {
+      const userId = newUserId();
+      for (let index = 0; index < 25; index += 1) {
+        await addBook(userId, `Favorito ${index}`, true);
+      }
+      await addBook(userId, "Normal");
+
+      const first = await BooksService.listLibrary(userId, {
+        favorite: "true",
+      });
+      const second = await BooksService.listLibrary(userId, {
+        favorite: "true",
+        cursor: first.nextCursor,
+      });
+
+      expect(first.items).toHaveLength(24);
+      expect(second.items).toHaveLength(1);
+      expect(second.nextCursor).toBeNull();
+    });
+  });
+
+  describe("When favorite has an unknown value", () => {
+    it("Then it should throw VALIDATION_ERROR on favorite", async () => {
+      await expect(
+        BooksService.listLibrary(newUserId(), { favorite: "quizás" }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "favorite" });
+    });
+  });
+});

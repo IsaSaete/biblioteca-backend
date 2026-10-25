@@ -184,15 +184,21 @@ interface LibraryPipelineOptions {
   sort: "recent" | "alpha";
   cursor?: ReturnType<typeof decodeLibraryCursor>;
   search?: string;
+  favorite?: boolean;
 }
 
 const buildLibraryPipeline = (
   userId: string,
-  { sort, cursor, search }: LibraryPipelineOptions,
+  { sort, cursor, search, favorite }: LibraryPipelineOptions,
 ): PipelineStage[] => {
   const cursorId = cursor ? new Types.ObjectId(cursor.id) : undefined;
   const pipeline: PipelineStage[] = [
-    { $match: { userId: new Types.ObjectId(userId) } },
+    {
+      $match: {
+        userId: new Types.ObjectId(userId),
+        ...(favorite && { favorite: true }),
+      },
+    },
     {
       $lookup: {
         from: Book.collection.name,
@@ -244,12 +250,17 @@ const listLibrary = async (
   userId: string,
   query: unknown,
 ): Promise<LibraryPageDto> => {
-  const { search, sort, cursor: rawCursor } = validateListLibraryQuery(query);
+  const {
+    search,
+    favorite,
+    sort,
+    cursor: rawCursor,
+  } = validateListLibraryQuery(query);
   const cursor = rawCursor ? decodeLibraryCursor(rawCursor, sort) : undefined;
 
   // La ordenación alfabética ignora mayúsculas y acentos (collation español).
   const rows = await Ejemplar.aggregate<LibraryRow>(
-    buildLibraryPipeline(userId, { sort, cursor, search }),
+    buildLibraryPipeline(userId, { sort, cursor, search, favorite }),
   ).collation({ locale: "es", strength: 1 });
 
   const pageRows = rows.slice(0, LIBRARY_PAGE_SIZE);
