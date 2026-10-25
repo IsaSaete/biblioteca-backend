@@ -348,6 +348,51 @@ describe("Given the GET /books endpoint", () => {
     });
   });
 
+  describe("When the user filters by untagged=true", () => {
+    it("Then it should respond 200 with only the books without tags", async () => {
+      const { cookie } = createSessionCookie();
+      const tagged = await postBook(
+        cookie,
+        buildManualBookDto({ title: "Etiquetado" }),
+      );
+      await postBook(cookie, buildManualBookDto({ title: "Sin catalogar" }));
+      await request(app)
+        .patch(`/books/${tagged.body.book.id}/ejemplar`)
+        .set("Cookie", cookie)
+        .set("X-CSRF-Token", CSRF_TOKEN)
+        .send({ tags: ["Historia"] });
+
+      const response = await request(app)
+        .get("/books")
+        .query({ untagged: "true" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(
+        response.body.items.map(
+          (item: { book: { title: string } }) => item.book.title,
+        ),
+      ).toEqual(["Sin catalogar"]);
+    });
+  });
+
+  describe("When untagged is combined with tag", () => {
+    it("Then it should respond 400 with VALIDATION_ERROR on untagged", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/books")
+        .query({ untagged: "true", tag: "Historia" })
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "untagged",
+      });
+    });
+  });
+
   describe("When favorite has an unknown value", () => {
     it("Then it should respond 400 with VALIDATION_ERROR on favorite", async () => {
       const { cookie } = createSessionCookie();
