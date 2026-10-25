@@ -15,6 +15,11 @@ const listLibraryQuerySchema = z.object({
     )
     .optional()
     .transform((value) => value || undefined),
+  // Solo `true` filtra; `false` o ausente equivale a no filtrar.
+  favorite: z
+    .enum(["true", "false"], "El filtro de favoritos no es válido")
+    .default("false")
+    .transform((value) => value === "true"),
   sort: z.enum(["recent", "alpha"], "El orden no es válido").default("recent"),
   cursor: z.string().min(1, "El cursor no es válido").optional(),
 });
