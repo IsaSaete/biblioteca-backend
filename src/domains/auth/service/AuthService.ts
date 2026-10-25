@@ -158,6 +158,19 @@ const updatePreferences = async (
   return mapPreferencesToDto(user);
 };
 
+// Idempotente: solo se guarda la fecha la primera vez, así que llamarlo de nuevo
+// no la cambia ni da error.
+const completeOnboarding = async (userId: string): Promise<void> => {
+  const result = await User.updateOne(
+    { _id: userId, onboardingCompletedAt: { $exists: false } },
+    { $set: { onboardingCompletedAt: new Date() } },
+  );
+
+  if (result.matchedCount === 0 && !(await User.exists({ _id: userId }))) {
+    throw unauthenticatedError();
+  }
+};
+
 // Rota el refresh token: el presentado solo sirve si su hash es el vigente y
 // se sustituye de forma atómica por el nuevo. Si el token está bien firmado
 // pero su hash ya no es el vigente, alguien lo está reutilizando (señal de
@@ -286,6 +299,7 @@ const AuthService = {
   loginUser,
   getCurrentUser,
   updatePreferences,
+  completeOnboarding,
   refreshSession,
   logoutUser,
   requestPasswordReset,
