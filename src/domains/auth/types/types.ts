@@ -15,6 +15,11 @@ export interface PreferencesDto {
   libraryView: LibraryView;
 }
 
+// Cambia solo lo que se envía; un body vacío no cambia nada.
+export interface UpdatePreferencesDto {
+  libraryView?: LibraryView;
+}
+
 export interface UserDto {
   id: string;
   name: string;
