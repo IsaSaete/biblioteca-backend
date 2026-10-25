@@ -14,7 +14,12 @@ import mapQuoteToDto from "../mapper/mapQuoteToDto.js";
 import validateCreateQuoteDto from "../validator/validateCreateQuoteDto.js";
 import validateUpdateQuoteDto from "../validator/validateUpdateQuoteDto.js";
 import validateListQuotesQuery from "../validator/validateListQuotesQuery.js";
-import type { QuoteBooksDto, QuoteDto, QuotesPageDto } from "../types/types.js";
+import type {
+  ListQuotesQuery,
+  QuoteBooksDto,
+  QuoteDto,
+  QuotesPageDto,
+} from "../types/types.js";
 
 export const QUOTES_PAGE_SIZE = 24;
 
@@ -73,21 +78,11 @@ const createQuote = async (
   return mapQuoteToDto(quote.toObject(), ejemplar, book);
 };
 
-const listQuotes = async (
+// Las citas del usuario que cumplen el filtro por libro o por «sin libro».
+const buildQuotesFilter = async (
   userId: string,
-  query: unknown,
-): Promise<QuotesPageDto> => {
-  const {
-    bookId,
-    unlinked,
-    sort,
-    cursor: rawCursor,
-  } = validateListQuotesQuery(query);
-  const cursor = rawCursor ? decodeLibraryCursor(rawCursor, sort) : undefined;
-  // `recent` avanza hacia fechas anteriores; `oldest`, hacia fechas posteriores.
-  const direction = sort === "recent" ? -1 : 1;
-  const after = sort === "recent" ? "$lt" : "$gt";
-
+  { bookId, unlinked }: Pick<ListQuotesQuery, "bookId" | "unlinked">,
+): Promise<QueryFilter<QuoteDocument>> => {
   const filter: QueryFilter<QuoteDocument> = { userId };
 
   if (unlinked) {
@@ -107,6 +102,26 @@ const listQuotes = async (
 
     filter.ejemplarId = ejemplar._id;
   }
+
+  return filter;
+};
+
+const listQuotes = async (
+  userId: string,
+  query: unknown,
+): Promise<QuotesPageDto> => {
+  const {
+    bookId,
+    unlinked,
+    sort,
+    cursor: rawCursor,
+  } = validateListQuotesQuery(query);
+  const cursor = rawCursor ? decodeLibraryCursor(rawCursor, sort) : undefined;
+  // `recent` avanza hacia fechas anteriores; `oldest`, hacia fechas posteriores.
+  const direction = sort === "recent" ? -1 : 1;
+  const after = sort === "recent" ? "$lt" : "$gt";
+
+  const filter = await buildQuotesFilter(userId, { bookId, unlinked });
 
   const total = await Quote.countDocuments(filter);
 
