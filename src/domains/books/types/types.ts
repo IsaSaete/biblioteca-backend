@@ -103,6 +103,16 @@ export interface LibraryPageDto {
   total: number;
 }
 
+export interface BookTagDto {
+  tag: string;
+  count: number;
+}
+
+export interface BookTagsDto {
+  items: BookTagDto[];
+  untaggedCount: number;
+}
+
 export type LibrarySort = "recent" | "alpha";
 
 export interface ListLibraryQuery {

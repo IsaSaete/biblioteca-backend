@@ -724,3 +724,53 @@ describe("Given the DELETE /books/:id endpoint", () => {
     });
   });
 });
+
+describe("Given the GET /books/tags endpoint", () => {
+  describe("When the user has tagged and untagged books", () => {
+    it("Then it should respond 200 with { items, untaggedCount }, without treating tags as a book id", async () => {
+      const { cookie } = createSessionCookie();
+      const tagged = await postBook(
+        cookie,
+        buildManualBookDto({ title: "Etiquetado" }),
+      );
+      await postBook(cookie, buildManualBookDto({ title: "Sin etiquetas" }));
+      await request(app)
+        .patch(`/books/${tagged.body.book.id}/ejemplar`)
+        .set("Cookie", cookie)
+        .set("X-CSRF-Token", CSRF_TOKEN)
+        .send({ tags: ["Historia"] });
+
+      const response = await request(app)
+        .get("/books/tags")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        items: [{ tag: "Historia", count: 1 }],
+        untaggedCount: 1,
+      });
+    });
+  });
+
+  describe("When the user has no books", () => {
+    it("Then it should respond 200 with an empty list", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/books/tags")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ items: [], untaggedCount: 0 });
+    });
+  });
+
+  describe("When the request has no session", () => {
+    it("Then it should respond 401 with AUTH_UNAUTHENTICATED", async () => {
+      const response = await request(app).get("/books/tags");
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("AUTH_UNAUTHENTICATED");
+    });
+  });
+});
