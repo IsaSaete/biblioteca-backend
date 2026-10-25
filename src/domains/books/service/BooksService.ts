@@ -237,6 +237,7 @@ const LIBRARY_SORT_RULES: Record<LibrarySort, LibrarySortRule> = {
   recent: { path: "createdAt", direction: -1 },
   oldest: { path: "createdAt", direction: 1 },
   alpha: { path: "book.title", direction: 1 },
+  alpha_desc: { path: "book.title", direction: -1 },
 };
 
 const buildLibraryPipeline = (

@@ -314,6 +314,41 @@ describe("Given the GET /books endpoint", () => {
     });
   });
 
+  describe("When the sort is alpha_desc", () => {
+    it("Then it should respond 200 ordered by title from Z to A and combine with the filters", async () => {
+      const { cookie } = createSessionCookie();
+      const alfa = await postBook(
+        cookie,
+        buildManualBookDto({ title: "Alfa" }),
+      );
+      await postBook(cookie, buildManualBookDto({ title: "Zeta" }));
+      await postBook(cookie, buildManualBookDto({ title: "Beta" }));
+      await request(app)
+        .patch(`/books/${alfa.body.book.id}/ejemplar`)
+        .set("Cookie", cookie)
+        .set("X-CSRF-Token", CSRF_TOKEN)
+        .send({ favorite: true });
+
+      const all = await request(app)
+        .get("/books")
+        .query({ sort: "alpha_desc" })
+        .set("Cookie", cookie);
+      const favorites = await request(app)
+        .get("/books")
+        .query({ sort: "alpha_desc", favorite: "true" })
+        .set("Cookie", cookie);
+
+      const titles = (body: { items: { book: { title: string } }[] }) =>
+        body.items.map((item) => item.book.title);
+
+      expect(all.status).toBe(200);
+      expect(titles(all.body)).toEqual(["Zeta", "Beta", "Alfa"]);
+      expect(all.body.total).toBe(3);
+      expect(titles(favorites.body)).toEqual(["Alfa"]);
+      expect(favorites.body.total).toBe(1);
+    });
+  });
+
   describe("When the user searches by a word of the title or author", () => {
     it("Then it should respond 200 with only the matching books", async () => {
       const { cookie } = createSessionCookie();
