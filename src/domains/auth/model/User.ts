@@ -26,6 +26,11 @@ const userSchema = new Schema(
     refreshTokenHash: { type: String },
     passwordResetTokenHash: { type: String },
     passwordResetTokenExpiresAt: { type: Date },
+    // Email nuevo a la espera de confirmar (D-032): `email` no cambia hasta
+    // que se abre el enlace enviado a esta dirección.
+    pendingEmail: { type: String, lowercase: true },
+    pendingEmailTokenHash: { type: String },
+    pendingEmailTokenExpiresAt: { type: Date },
     emailVerificationTokenHash: { type: String },
     emailVerificationTokenExpiresAt: { type: Date },
   },
