@@ -363,6 +363,33 @@ const confirmEmailChange = async (
   }
 };
 
+const exportData = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // authMiddleware garantiza userId; la comprobación estrecha el tipo.
+    if (!req.userId) {
+      throw new UnauthorizedError(
+        "AUTH_UNAUTHENTICATED",
+        "Necesitas iniciar sesión para acceder a este recurso",
+      );
+    }
+
+    const data = await AuthService.exportData(req.userId);
+
+    // Datos personales: que ninguna caché intermedia los guarde.
+    res
+      .set("Content-Disposition", 'attachment; filename="glosa-datos.json"')
+      .set("Cache-Control", "no-store")
+      .type("application/json")
+      .send(JSON.stringify(data, null, 2));
+  } catch (error) {
+    next(error);
+  }
+};
+
 const AuthController = {
   register,
   verifyEmail,
@@ -381,6 +408,7 @@ const AuthController = {
   changePassword,
   requestEmailChange,
   confirmEmailChange,
+  exportData,
 };
 
 export default AuthController;

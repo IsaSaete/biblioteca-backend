@@ -1,3 +1,6 @@
+import type { BookDto, EjemplarDto } from "../../books/types/types.js";
+import type { QuoteDto } from "../../quotes/types/types.js";
+
 export interface RegisterUserDto {
   name: string;
   email: string;
@@ -70,4 +73,11 @@ export interface RequestEmailChangeDto {
 export interface ResetPasswordDto {
   token: string;
   newPassword: string;
+}
+
+export interface ExportDataDto {
+  exportedAt: string;
+  user: { id: string; name: string; email: string; createdAt: string };
+  books: { book: BookDto; ejemplar: EjemplarDto }[];
+  quotes: QuoteDto[];
 }
