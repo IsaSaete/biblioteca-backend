@@ -24,6 +24,11 @@ export const AVATAR_CONTENT_TYPE = "image/jpeg";
 
 export const AVATAR_MAX_BYTES = 200 * 1024;
 
+export interface AvatarFile {
+  data: Buffer;
+  contentType: string;
+}
+
 export interface UpdateProfileDto {
   name: string;
 }
