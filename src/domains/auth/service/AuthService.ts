@@ -36,6 +36,7 @@ import {
 } from "../types/types.js";
 
 const BCRYPT_COST = 12;
+const MONGO_DUPLICATE_KEY_ERROR = 11000;
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const EMAIL_CHANGE_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -459,6 +460,75 @@ const requestEmailChange = async (
   await sendEmailChangeNoticeEmail(user.email, dto.newEmail);
 };
 
+const isDuplicateKeyError = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  error.code === MONGO_DUPLICATE_KEY_ERROR;
+
+const invalidEmailChangeTokenError = () =>
+  new ValidationError(
+    "AUTH_INVALID_TOKEN",
+    "El enlace de confirmación no es válido o ha caducado",
+  );
+
+const emailTakenError = () =>
+  new ValidationError(
+    "AUTH_EMAIL_TAKEN",
+    "Ya existe una cuenta con este email",
+    "newEmail",
+  );
+
+// Aplica el email pendiente. No exige sesión: el enlace puede abrirse en otro
+// navegador. El token es de un solo uso (se borra al aplicarlo) y el cambio
+// cierra las sesiones: sustituir el email invalida el refresh token vigente.
+const confirmEmailChange = async (token: string): Promise<void> => {
+  const pendingEmailTokenHash = hashToken(token);
+  const validToken = {
+    pendingEmailTokenHash,
+    pendingEmailTokenExpiresAt: { $gt: new Date() },
+  };
+
+  const user = await User.findOne(validToken);
+
+  if (!user?.pendingEmail) {
+    throw invalidEmailChangeTokenError();
+  }
+
+  // Alguien pudo registrar ese email entre la petición y la confirmación.
+  if (await User.exists({ email: user.pendingEmail })) {
+    throw emailTakenError();
+  }
+
+  try {
+    // El filtro repite el token: si dos aperturas del enlace coinciden, solo
+    // una lo consume.
+    const updated = await User.findOneAndUpdate(validToken, {
+      email: user.pendingEmail,
+      emailVerified: true,
+      $unset: {
+        pendingEmail: 1,
+        pendingEmailTokenHash: 1,
+        pendingEmailTokenExpiresAt: 1,
+        emailVerificationTokenHash: 1,
+        emailVerificationTokenExpiresAt: 1,
+        refreshTokenHash: 1,
+      },
+    });
+
+    if (!updated) {
+      throw invalidEmailChangeTokenError();
+    }
+  } catch (error) {
+    // El índice único de `email` gana la carrera contra la comprobación de arriba.
+    if (isDuplicateKeyError(error)) {
+      throw emailTakenError();
+    }
+
+    throw error;
+  }
+};
+
 const AuthService = {
   registerUser,
   verifyEmail,
@@ -476,6 +546,7 @@ const AuthService = {
   resetPassword,
   changePassword,
   requestEmailChange,
+  confirmEmailChange,
 };
 
 export default AuthService;
