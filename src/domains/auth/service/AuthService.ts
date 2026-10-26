@@ -15,13 +15,19 @@ import User from "../model/User.js";
 import mapUserDocumentToDto, {
   mapPreferencesToDto,
 } from "../mapper/mapUserDocumentToDto.js";
+import validateAvatarBody from "../validator/validateAvatarBody.js";
 import validateForgotPasswordDto from "../validator/validateForgotPasswordDto.js";
 import validateLoginDto from "../validator/validateLoginDto.js";
 import validateRegisterDto from "../validator/validateRegisterDto.js";
 import validateResetPasswordDto from "../validator/validateResetPasswordDto.js";
 import validateUpdateProfileDto from "../validator/validateUpdateProfileDto.js";
 import validateUpdatePreferencesDto from "../validator/validateUpdatePreferencesDto.js";
-import type { PreferencesDto, SessionTokens, UserDto } from "../types/types.js";
+import {
+  AVATAR_CONTENT_TYPE,
+  type PreferencesDto,
+  type SessionTokens,
+  type UserDto,
+} from "../types/types.js";
 
 const BCRYPT_COST = 12;
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
@@ -147,6 +153,33 @@ const updateProfile = async (
   const user = await User.findByIdAndUpdate(
     userId,
     { $set: { name: dto.name } },
+    { returnDocument: "after" },
+  );
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  return mapUserDocumentToDto(user);
+};
+
+const uploadAvatar = async (
+  userId: string,
+  body: unknown,
+): Promise<UserDto> => {
+  const data = validateAvatarBody(body);
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    {
+      $set: {
+        avatar: {
+          data,
+          contentType: AVATAR_CONTENT_TYPE,
+          updatedAt: new Date(),
+        },
+      },
+    },
     { returnDocument: "after" },
   );
 
@@ -319,6 +352,7 @@ const AuthService = {
   loginUser,
   getCurrentUser,
   updateProfile,
+  uploadAvatar,
   updatePreferences,
   completeOnboarding,
   refreshSession,
