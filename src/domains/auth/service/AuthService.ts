@@ -206,6 +206,15 @@ const getAvatar = async (userId: string): Promise<AvatarFile> => {
   return { data: user.avatar.data, contentType: user.avatar.contentType };
 };
 
+// Idempotente: quitar una foto que no existe no es un error.
+const removeAvatar = async (userId: string): Promise<void> => {
+  const user = await User.findByIdAndUpdate(userId, { $unset: { avatar: "" } });
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+};
+
 const updatePreferences = async (
   userId: string,
   body: unknown,
@@ -370,6 +379,7 @@ const AuthService = {
   updateProfile,
   uploadAvatar,
   getAvatar,
+  removeAvatar,
   updatePreferences,
   completeOnboarding,
   refreshSession,
