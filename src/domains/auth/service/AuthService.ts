@@ -17,6 +17,7 @@ import mapUserDocumentToDto, {
   mapPreferencesToDto,
 } from "../mapper/mapUserDocumentToDto.js";
 import validateAvatarBody from "../validator/validateAvatarBody.js";
+import validateChangePasswordDto from "../validator/validateChangePasswordDto.js";
 import validateForgotPasswordDto from "../validator/validateForgotPasswordDto.js";
 import validateLoginDto from "../validator/validateLoginDto.js";
 import validateRegisterDto from "../validator/validateRegisterDto.js";
@@ -371,6 +372,39 @@ const resetPassword = async (body: unknown): Promise<void> => {
   }
 };
 
+// startSession sustituye el único refreshTokenHash del usuario: los refresh
+// tokens de las demás sesiones dejan de servir y la actual sigue abierta con
+// tokens nuevos.
+const changePassword = async (
+  userId: string,
+  body: unknown,
+): Promise<SessionTokens> => {
+  const dto = validateChangePasswordDto(body);
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  const isCurrentPasswordValid = await bcrypt.compare(
+    dto.currentPassword,
+    user.passwordHash,
+  );
+
+  if (!isCurrentPasswordValid) {
+    throw new UnauthorizedError(
+      "AUTH_INVALID_CREDENTIALS",
+      "La contraseña actual no es correcta",
+    );
+  }
+
+  user.passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_COST);
+  await user.save();
+
+  return startSession(user.id);
+};
+
 const AuthService = {
   registerUser,
   verifyEmail,
@@ -386,6 +420,7 @@ const AuthService = {
   logoutUser,
   requestPasswordReset,
   resetPassword,
+  changePassword,
 };
 
 export default AuthService;

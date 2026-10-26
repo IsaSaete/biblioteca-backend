@@ -33,6 +33,12 @@ authRouter.delete(
   handleCsrf,
   AuthController.removeAvatar,
 );
+authRouter.post(
+  "/me/password",
+  authMiddleware,
+  handleCsrf,
+  AuthController.changePassword,
+);
 authRouter.patch(
   "/me/preferences",
   authMiddleware,
