@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import ValidationError from "../../../shared/errors/ValidationError.js";
 import UnauthorizedError from "../../../shared/errors/UnauthorizedError.js";
+import Ejemplar from "../../books/model/Ejemplar.js";
+import Quote from "../../quotes/model/Quote.js";
 import exportUserData from "./exportUserData.js";
 import sendEmailChangeConfirmationEmail from "../../../shared/email/sendEmailChangeConfirmationEmail.js";
 import sendEmailChangeNoticeEmail from "../../../shared/email/sendEmailChangeNoticeEmail.js";
@@ -21,6 +23,7 @@ import mapUserDocumentToDto, {
 } from "../mapper/mapUserDocumentToDto.js";
 import validateAvatarBody from "../validator/validateAvatarBody.js";
 import validateChangePasswordDto from "../validator/validateChangePasswordDto.js";
+import validateDeleteAccountDto from "../validator/validateDeleteAccountDto.js";
 import validateForgotPasswordDto from "../validator/validateForgotPasswordDto.js";
 import validateLoginDto from "../validator/validateLoginDto.js";
 import validateRegisterDto from "../validator/validateRegisterDto.js";
@@ -541,6 +544,32 @@ const exportData = async (userId: string): Promise<ExportDataDto> => {
   return exportUserData(user);
 };
 
+// Borrado inmediato y definitivo. Primero lo que depende del usuario y al final
+// el usuario: si algo falla a medias, la cuenta sigue existiendo y se puede
+// repetir. Los `Libro` no se tocan, son compartidos entre usuarios.
+const deleteAccount = async (userId: string, body: unknown): Promise<void> => {
+  const dto = validateDeleteAccountDto(body);
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+
+  if (!isPasswordValid) {
+    throw new UnauthorizedError(
+      "AUTH_INVALID_CREDENTIALS",
+      "La contraseña no es correcta",
+    );
+  }
+
+  await Quote.deleteMany({ userId: user._id });
+  await Ejemplar.deleteMany({ userId: user._id });
+  await User.deleteOne({ _id: user._id });
+};
+
 const AuthService = {
   registerUser,
   verifyEmail,
@@ -560,6 +589,7 @@ const AuthService = {
   requestEmailChange,
   confirmEmailChange,
   exportData,
+  deleteAccount,
 };
 
 export default AuthService;

@@ -390,6 +390,30 @@ const exportData = async (
   }
 };
 
+const deleteAccount = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // authMiddleware garantiza userId; la comprobación estrecha el tipo.
+    if (!req.userId) {
+      throw new UnauthorizedError(
+        "AUTH_UNAUTHENTICATED",
+        "Necesitas iniciar sesión para acceder a este recurso",
+      );
+    }
+
+    await AuthService.deleteAccount(req.userId, req.body);
+
+    clearSessionCookies(res);
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 const AuthController = {
   register,
   verifyEmail,
@@ -409,6 +433,7 @@ const AuthController = {
   requestEmailChange,
   confirmEmailChange,
   exportData,
+  deleteAccount,
 };
 
 export default AuthController;
