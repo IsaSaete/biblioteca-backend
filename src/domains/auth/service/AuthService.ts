@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import ValidationError from "../../../shared/errors/ValidationError.js";
 import UnauthorizedError from "../../../shared/errors/UnauthorizedError.js";
+import exportUserData from "./exportUserData.js";
 import sendEmailChangeConfirmationEmail from "../../../shared/email/sendEmailChangeConfirmationEmail.js";
 import sendEmailChangeNoticeEmail from "../../../shared/email/sendEmailChangeNoticeEmail.js";
 import sendPasswordResetEmail from "../../../shared/email/sendPasswordResetEmail.js";
@@ -30,6 +31,7 @@ import validateUpdatePreferencesDto from "../validator/validateUpdatePreferences
 import {
   AVATAR_CONTENT_TYPE,
   type AvatarFile,
+  type ExportDataDto,
   type PreferencesDto,
   type SessionTokens,
   type UserDto,
@@ -529,6 +531,16 @@ const confirmEmailChange = async (token: string): Promise<void> => {
   }
 };
 
+const exportData = async (userId: string): Promise<ExportDataDto> => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  return exportUserData(user);
+};
+
 const AuthService = {
   registerUser,
   verifyEmail,
@@ -547,6 +559,7 @@ const AuthService = {
   changePassword,
   requestEmailChange,
   confirmEmailChange,
+  exportData,
 };
 
 export default AuthService;

@@ -5,6 +5,7 @@ import AuthController from "../controller/AuthController.js";
 import limitWrongPasswordAttempts from "../middleware/limitWrongPasswordAttempts.js";
 import parseAvatarBody from "../middleware/parseAvatarBody.js";
 import limitEmailChangeRequests from "../middleware/limitEmailChangeRequests.js";
+import limitExportRequests from "../middleware/limitExportRequests.js";
 import limitForgotPasswordRequests from "../middleware/limitForgotPasswordRequests.js";
 import limitLoginRequests from "../middleware/limitLoginRequests.js";
 import limitRegisterRequests from "../middleware/limitRegisterRequests.js";
@@ -50,6 +51,12 @@ authRouter.post(
   limitEmailChangeRequests,
   limitWrongPasswordAttempts,
   AuthController.requestEmailChange,
+);
+authRouter.get(
+  "/me/export",
+  authMiddleware,
+  limitExportRequests,
+  AuthController.exportData,
 );
 authRouter.patch(
   "/me/preferences",
