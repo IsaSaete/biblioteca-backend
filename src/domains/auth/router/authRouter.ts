@@ -26,6 +26,7 @@ authRouter.put(
   parseAvatarBody,
   AuthController.uploadAvatar,
 );
+authRouter.get("/me/avatar", authMiddleware, AuthController.getAvatar);
 authRouter.patch(
   "/me/preferences",
   authMiddleware,

@@ -128,6 +128,29 @@ const uploadAvatar = async (
   }
 };
 
+const getAvatar = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // authMiddleware garantiza userId; la comprobación estrecha el tipo.
+    if (!req.userId) {
+      throw new UnauthorizedError(
+        "AUTH_UNAUTHENTICATED",
+        "Necesitas iniciar sesión para acceder a este recurso",
+      );
+    }
+
+    const { data, contentType } = await AuthService.getAvatar(req.userId);
+
+    // res.send calcula el ETag y responde 304 si el cliente ya lo tiene.
+    res.set("Cache-Control", "private").type(contentType).send(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updatePreferences = async (
   req: Request,
   res: Response,
@@ -256,6 +279,7 @@ const AuthController = {
   me,
   updateProfile,
   uploadAvatar,
+  getAvatar,
   updatePreferences,
   completeOnboarding,
   refresh,

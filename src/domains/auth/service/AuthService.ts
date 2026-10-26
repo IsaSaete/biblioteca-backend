@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import ValidationError from "../../../shared/errors/ValidationError.js";
 import UnauthorizedError from "../../../shared/errors/UnauthorizedError.js";
 import sendPasswordResetEmail from "../../../shared/email/sendPasswordResetEmail.js";
@@ -24,6 +25,7 @@ import validateUpdateProfileDto from "../validator/validateUpdateProfileDto.js";
 import validateUpdatePreferencesDto from "../validator/validateUpdatePreferencesDto.js";
 import {
   AVATAR_CONTENT_TYPE,
+  type AvatarFile,
   type PreferencesDto,
   type SessionTokens,
   type UserDto,
@@ -190,6 +192,20 @@ const uploadAvatar = async (
   return mapUserDocumentToDto(user);
 };
 
+const getAvatar = async (userId: string): Promise<AvatarFile> => {
+  const user = await User.findById(userId).select("+avatar.data");
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  if (!user.avatar?.data || !user.avatar.contentType) {
+    throw new NotFoundError("AVATAR_NOT_FOUND", "No tienes foto de perfil");
+  }
+
+  return { data: user.avatar.data, contentType: user.avatar.contentType };
+};
+
 const updatePreferences = async (
   userId: string,
   body: unknown,
@@ -353,6 +369,7 @@ const AuthService = {
   getCurrentUser,
   updateProfile,
   uploadAvatar,
+  getAvatar,
   updatePreferences,
   completeOnboarding,
   refreshSession,
