@@ -45,6 +45,8 @@ describe("Given the AuthService.registerUser function", () => {
         id: expect.any(String),
         name: dto.name,
         email: dto.email,
+        emailVerified: false,
+        avatarUrl: null,
         onboardingCompleted: false,
         preferences: { libraryView: "grid" },
       });

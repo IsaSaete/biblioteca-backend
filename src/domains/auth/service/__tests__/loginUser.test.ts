@@ -49,6 +49,8 @@ describe("Given the AuthService.loginUser function", () => {
         id: expect.any(String),
         name: "Isa",
         email: dto.email,
+        emailVerified: false,
+        avatarUrl: null,
         onboardingCompleted: false,
         preferences: { libraryView: "grid" },
       });

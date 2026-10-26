@@ -8,7 +8,14 @@ const userSchema = new Schema(
     passwordHash: { type: String, required: true },
     emailVerified: { type: Boolean, required: true, default: false },
     acceptedTermsAt: { type: Date, required: true },
-    avatarUrl: { type: String },
+    // Foto 256×256 guardada en el propio documento (D-032). Solo `data` lleva
+    // select:false: así contentType y updatedAt bastan para derivar avatarUrl
+    // sin cargar los bytes en cada consulta.
+    avatar: {
+      data: { type: Buffer, select: false },
+      contentType: { type: String, enum: ["image/jpeg"] },
+      updatedAt: { type: Date },
+    },
     // Fecha en la que completó o saltó el onboarding; ausente = aún no lo ha visto.
     onboardingCompletedAt: { type: Date },
     // Las cuentas anteriores a este campo no lo tienen: el valor por defecto se
