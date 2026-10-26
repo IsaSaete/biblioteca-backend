@@ -294,6 +294,30 @@ const resetPassword = async (
   }
 };
 
+const changePassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // authMiddleware garantiza userId; la comprobación estrecha el tipo.
+    if (!req.userId) {
+      throw new UnauthorizedError(
+        "AUTH_UNAUTHENTICATED",
+        "Necesitas iniciar sesión para acceder a este recurso",
+      );
+    }
+
+    const session = await AuthService.changePassword(req.userId, req.body);
+
+    setSessionCookies(res, session);
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 const AuthController = {
   register,
   verifyEmail,
@@ -309,6 +333,7 @@ const AuthController = {
   logout,
   forgotPassword,
   resetPassword,
+  changePassword,
 };
 
 export default AuthController;
