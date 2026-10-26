@@ -2,6 +2,7 @@ import { Router } from "express";
 import authMiddleware from "../../../middleware/authMiddleware.js";
 import handleCsrf from "../../../middleware/handleCsrf.js";
 import AuthController from "../controller/AuthController.js";
+import parseAvatarBody from "../middleware/parseAvatarBody.js";
 import limitForgotPasswordRequests from "../middleware/limitForgotPasswordRequests.js";
 import limitLoginRequests from "../middleware/limitLoginRequests.js";
 import limitRegisterRequests from "../middleware/limitRegisterRequests.js";
@@ -17,6 +18,13 @@ authRouter.patch(
   authMiddleware,
   handleCsrf,
   AuthController.updateProfile,
+);
+authRouter.put(
+  "/me/avatar",
+  authMiddleware,
+  handleCsrf,
+  parseAvatarBody,
+  AuthController.uploadAvatar,
 );
 authRouter.patch(
   "/me/preferences",

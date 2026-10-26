@@ -27,3 +27,10 @@ export const buildLoginDto = (
 });
 
 export const NEW_VALID_PASSWORD = "N3w!Password";
+
+// Cabecera JPEG mínima (FF D8 FF) con relleno hasta el tamaño pedido.
+export const buildJpegBuffer = (size = 1024): Buffer =>
+  Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+    Buffer.alloc(Math.max(size - 4, 0), 1),
+  ]);

@@ -20,6 +20,10 @@ export interface UpdatePreferencesDto {
   libraryView?: LibraryView;
 }
 
+export const AVATAR_CONTENT_TYPE = "image/jpeg";
+
+export const AVATAR_MAX_BYTES = 200 * 1024;
+
 export interface UpdateProfileDto {
   name: string;
 }
