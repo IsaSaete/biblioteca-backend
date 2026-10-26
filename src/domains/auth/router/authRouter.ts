@@ -2,6 +2,7 @@ import { Router } from "express";
 import authMiddleware from "../../../middleware/authMiddleware.js";
 import handleCsrf from "../../../middleware/handleCsrf.js";
 import AuthController from "../controller/AuthController.js";
+import limitWrongPasswordAttempts from "../middleware/limitWrongPasswordAttempts.js";
 import parseAvatarBody from "../middleware/parseAvatarBody.js";
 import limitForgotPasswordRequests from "../middleware/limitForgotPasswordRequests.js";
 import limitLoginRequests from "../middleware/limitLoginRequests.js";
@@ -37,6 +38,7 @@ authRouter.post(
   "/me/password",
   authMiddleware,
   handleCsrf,
+  limitWrongPasswordAttempts,
   AuthController.changePassword,
 );
 authRouter.patch(
