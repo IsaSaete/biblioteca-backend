@@ -70,6 +70,10 @@ export interface RequestEmailChangeDto {
   currentPassword: string;
 }
 
+export interface DeleteAccountDto {
+  password: string;
+}
+
 export interface ResetPasswordDto {
   token: string;
   newPassword: string;

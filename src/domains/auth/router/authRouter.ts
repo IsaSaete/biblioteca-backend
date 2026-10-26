@@ -23,6 +23,13 @@ authRouter.patch(
   handleCsrf,
   AuthController.updateProfile,
 );
+authRouter.delete(
+  "/me",
+  authMiddleware,
+  handleCsrf,
+  limitWrongPasswordAttempts,
+  AuthController.deleteAccount,
+);
 authRouter.put(
   "/me/avatar",
   authMiddleware,
