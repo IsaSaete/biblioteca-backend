@@ -13,6 +13,7 @@ const authRouter = Router();
 
 authRouter.post("/register", limitRegisterRequests, AuthController.register);
 authRouter.get("/verify-email", AuthController.verifyEmail);
+authRouter.get("/confirm-email-change", AuthController.confirmEmailChange);
 authRouter.post("/login", limitLoginRequests, AuthController.login);
 authRouter.get("/me", authMiddleware, AuthController.me);
 authRouter.patch(

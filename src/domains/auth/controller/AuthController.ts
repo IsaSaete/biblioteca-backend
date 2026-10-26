@@ -340,6 +340,29 @@ const requestEmailChange = async (
   }
 };
 
+const confirmEmailChange = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { token } = req.query;
+
+    if (typeof token !== "string" || token.length === 0) {
+      throw new ValidationError(
+        "AUTH_INVALID_TOKEN",
+        "El enlace de confirmación no es válido o ha caducado",
+      );
+    }
+
+    await AuthService.confirmEmailChange(token);
+
+    res.status(200).end();
+  } catch (error) {
+    next(error);
+  }
+};
+
 const AuthController = {
   register,
   verifyEmail,
@@ -357,6 +380,7 @@ const AuthController = {
   resetPassword,
   changePassword,
   requestEmailChange,
+  confirmEmailChange,
 };
 
 export default AuthController;
