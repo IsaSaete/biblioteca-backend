@@ -4,6 +4,7 @@ import handleCsrf from "../../../middleware/handleCsrf.js";
 import AuthController from "../controller/AuthController.js";
 import limitWrongPasswordAttempts from "../middleware/limitWrongPasswordAttempts.js";
 import parseAvatarBody from "../middleware/parseAvatarBody.js";
+import limitEmailChangeRequests from "../middleware/limitEmailChangeRequests.js";
 import limitForgotPasswordRequests from "../middleware/limitForgotPasswordRequests.js";
 import limitLoginRequests from "../middleware/limitLoginRequests.js";
 import limitRegisterRequests from "../middleware/limitRegisterRequests.js";
@@ -40,6 +41,14 @@ authRouter.post(
   handleCsrf,
   limitWrongPasswordAttempts,
   AuthController.changePassword,
+);
+authRouter.post(
+  "/me/email",
+  authMiddleware,
+  handleCsrf,
+  limitEmailChangeRequests,
+  limitWrongPasswordAttempts,
+  AuthController.requestEmailChange,
 );
 authRouter.patch(
   "/me/preferences",

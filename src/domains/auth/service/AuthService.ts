@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import ValidationError from "../../../shared/errors/ValidationError.js";
 import UnauthorizedError from "../../../shared/errors/UnauthorizedError.js";
+import sendEmailChangeConfirmationEmail from "../../../shared/email/sendEmailChangeConfirmationEmail.js";
+import sendEmailChangeNoticeEmail from "../../../shared/email/sendEmailChangeNoticeEmail.js";
 import sendPasswordResetEmail from "../../../shared/email/sendPasswordResetEmail.js";
 import sendVerificationEmail from "../../../shared/email/sendVerificationEmail.js";
 import {
@@ -21,6 +23,7 @@ import validateChangePasswordDto from "../validator/validateChangePasswordDto.js
 import validateForgotPasswordDto from "../validator/validateForgotPasswordDto.js";
 import validateLoginDto from "../validator/validateLoginDto.js";
 import validateRegisterDto from "../validator/validateRegisterDto.js";
+import validateRequestEmailChangeDto from "../validator/validateRequestEmailChangeDto.js";
 import validateResetPasswordDto from "../validator/validateResetPasswordDto.js";
 import validateUpdateProfileDto from "../validator/validateUpdateProfileDto.js";
 import validateUpdatePreferencesDto from "../validator/validateUpdatePreferencesDto.js";
@@ -34,6 +37,7 @@ import {
 
 const BCRYPT_COST = 12;
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const EMAIL_CHANGE_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 export interface RegisterUserResult {
@@ -405,6 +409,56 @@ const changePassword = async (
   return startSession(user.id);
 };
 
+// No cambia el email: guarda el nuevo como pendiente y lo confirma el enlace
+// enviado a esa dirección. Un intento nuevo sustituye al pendiente (y su token).
+const requestEmailChange = async (
+  userId: string,
+  body: unknown,
+): Promise<void> => {
+  const dto = validateRequestEmailChangeDto(body);
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  const isCurrentPasswordValid = await bcrypt.compare(
+    dto.currentPassword,
+    user.passwordHash,
+  );
+
+  if (!isCurrentPasswordValid) {
+    throw new UnauthorizedError(
+      "AUTH_INVALID_CREDENTIALS",
+      "La contraseña actual no es correcta",
+    );
+  }
+
+  if (
+    dto.newEmail === user.email ||
+    (await User.exists({ email: dto.newEmail }))
+  ) {
+    throw new ValidationError(
+      "AUTH_EMAIL_TAKEN",
+      "Ya existe una cuenta con este email",
+      "newEmail",
+    );
+  }
+
+  const confirmationToken = createRawToken();
+
+  user.pendingEmail = dto.newEmail;
+  user.pendingEmailTokenHash = hashToken(confirmationToken);
+  user.pendingEmailTokenExpiresAt = new Date(
+    Date.now() + EMAIL_CHANGE_TOKEN_TTL_MS,
+  );
+  await user.save();
+
+  await sendEmailChangeConfirmationEmail(dto.newEmail, confirmationToken);
+  await sendEmailChangeNoticeEmail(user.email, dto.newEmail);
+};
+
 const AuthService = {
   registerUser,
   verifyEmail,
@@ -421,6 +475,7 @@ const AuthService = {
   requestPasswordReset,
   resetPassword,
   changePassword,
+  requestEmailChange,
 };
 
 export default AuthService;

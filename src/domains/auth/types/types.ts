@@ -62,6 +62,11 @@ export interface ChangePasswordDto {
   newPassword: string;
 }
 
+export interface RequestEmailChangeDto {
+  newEmail: string;
+  currentPassword: string;
+}
+
 export interface ResetPasswordDto {
   token: string;
   newPassword: string;
