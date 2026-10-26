@@ -19,6 +19,7 @@ import validateForgotPasswordDto from "../validator/validateForgotPasswordDto.js
 import validateLoginDto from "../validator/validateLoginDto.js";
 import validateRegisterDto from "../validator/validateRegisterDto.js";
 import validateResetPasswordDto from "../validator/validateResetPasswordDto.js";
+import validateUpdateProfileDto from "../validator/validateUpdateProfileDto.js";
 import validateUpdatePreferencesDto from "../validator/validateUpdatePreferencesDto.js";
 import type { PreferencesDto, SessionTokens, UserDto } from "../types/types.js";
 
@@ -129,6 +130,25 @@ const loginUser = async (body: unknown): Promise<LoginUserResult> => {
 
 const getCurrentUser = async (userId: string): Promise<UserDto> => {
   const user = await User.findById(userId);
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  return mapUserDocumentToDto(user);
+};
+
+const updateProfile = async (
+  userId: string,
+  body: unknown,
+): Promise<UserDto> => {
+  const dto = validateUpdateProfileDto(body);
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $set: { name: dto.name } },
+    { returnDocument: "after" },
+  );
 
   if (!user) {
     throw unauthenticatedError();
@@ -298,6 +318,7 @@ const AuthService = {
   verifyEmail,
   loginUser,
   getCurrentUser,
+  updateProfile,
   updatePreferences,
   completeOnboarding,
   refreshSession,

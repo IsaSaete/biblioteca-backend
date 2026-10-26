@@ -20,6 +20,10 @@ export interface UpdatePreferencesDto {
   libraryView?: LibraryView;
 }
 
+export interface UpdateProfileDto {
+  name: string;
+}
+
 export interface UserDto {
   id: string;
   name: string;
