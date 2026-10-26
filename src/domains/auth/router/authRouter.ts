@@ -13,6 +13,12 @@ authRouter.get("/verify-email", AuthController.verifyEmail);
 authRouter.post("/login", limitLoginRequests, AuthController.login);
 authRouter.get("/me", authMiddleware, AuthController.me);
 authRouter.patch(
+  "/me",
+  authMiddleware,
+  handleCsrf,
+  AuthController.updateProfile,
+);
+authRouter.patch(
   "/me/preferences",
   authMiddleware,
   handleCsrf,

@@ -4,6 +4,7 @@ import mapUserDocumentToDto from "../mapUserDocumentToDto.js";
 const buildUser = (
   preferences?: { libraryView?: "grid" | "list" },
   onboardingCompletedAt?: Date,
+  avatarUpdatedAt?: Date,
 ) =>
   new User({
     name: "Isa",
@@ -13,6 +14,9 @@ const buildUser = (
     refreshTokenHash: "token-secreto",
     ...(preferences && { preferences }),
     ...(onboardingCompletedAt && { onboardingCompletedAt }),
+    ...(avatarUpdatedAt && {
+      avatar: { contentType: "image/jpeg", updatedAt: avatarUpdatedAt },
+    }),
   });
 
 describe("Given the mapUserDocumentToDto function", () => {
@@ -47,10 +51,35 @@ describe("Given the mapUserDocumentToDto function", () => {
     });
   });
 
+  describe("When the user has no photo", () => {
+    it("Then avatarUrl should be null", () => {
+      expect(mapUserDocumentToDto(buildUser()).avatarUrl).toBeNull();
+    });
+  });
+
+  describe("When the user has a photo", () => {
+    it("Then avatarUrl should point to the avatar endpoint with the update time as cache-buster", () => {
+      const updatedAt = new Date("2026-10-26T10:00:00.000Z");
+
+      expect(
+        mapUserDocumentToDto(buildUser(undefined, undefined, updatedAt))
+          .avatarUrl,
+      ).toBe(`/api/auth/me/avatar?v=${updatedAt.getTime()}`);
+    });
+  });
+
+  describe("When the email is not verified yet", () => {
+    it("Then emailVerified should be false", () => {
+      expect(mapUserDocumentToDto(buildUser()).emailVerified).toBe(false);
+    });
+  });
+
   describe("When the user has sensitive fields", () => {
-    it("Then the DTO should only expose id, name, email and preferences", () => {
+    it("Then the DTO should only expose the public fields", () => {
       expect(Object.keys(mapUserDocumentToDto(buildUser())).sort()).toEqual([
+        "avatarUrl",
         "email",
+        "emailVerified",
         "id",
         "name",
         "onboardingCompleted",

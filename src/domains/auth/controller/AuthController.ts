@@ -84,6 +84,28 @@ const me = async (
   }
 };
 
+const updateProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // authMiddleware garantiza userId; la comprobación estrecha el tipo.
+    if (!req.userId) {
+      throw new UnauthorizedError(
+        "AUTH_UNAUTHENTICATED",
+        "Necesitas iniciar sesión para acceder a este recurso",
+      );
+    }
+
+    const user = await AuthService.updateProfile(req.userId, req.body);
+
+    res.status(200).json({ user });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updatePreferences = async (
   req: Request,
   res: Response,
@@ -210,6 +232,7 @@ const AuthController = {
   verifyEmail,
   login,
   me,
+  updateProfile,
   updatePreferences,
   completeOnboarding,
   refresh,

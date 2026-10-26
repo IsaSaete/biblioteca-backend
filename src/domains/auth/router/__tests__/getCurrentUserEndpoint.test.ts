@@ -49,6 +49,8 @@ describe("Given the GET /auth/me endpoint", () => {
           id: expect.any(String),
           name: "Isa",
           email: "isa@example.com",
+          emailVerified: false,
+          avatarUrl: null,
           onboardingCompleted: false,
           preferences: { libraryView: "grid" },
         },
