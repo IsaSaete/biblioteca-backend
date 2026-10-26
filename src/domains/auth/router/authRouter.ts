@@ -27,6 +27,12 @@ authRouter.put(
   AuthController.uploadAvatar,
 );
 authRouter.get("/me/avatar", authMiddleware, AuthController.getAvatar);
+authRouter.delete(
+  "/me/avatar",
+  authMiddleware,
+  handleCsrf,
+  AuthController.removeAvatar,
+);
 authRouter.patch(
   "/me/preferences",
   authMiddleware,
