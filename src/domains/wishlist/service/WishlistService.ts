@@ -162,6 +162,27 @@ const updateWishlistItem = async (
   return mapWishlistItemToDto(item, book);
 };
 
-const WishlistService = { addToWishlist, listWishlist, updateWishlistItem };
+// Quita solo el deseado: el Libro es compartido y no se toca.
+const removeFromWishlist = async (
+  userId: string,
+  itemId: string,
+): Promise<void> => {
+  if (!Types.ObjectId.isValid(itemId)) {
+    throw WISHLIST_ITEM_NOT_FOUND;
+  }
+
+  const result = await WishlistItem.deleteOne({ _id: itemId, userId });
+
+  if (result.deletedCount === 0) {
+    throw WISHLIST_ITEM_NOT_FOUND;
+  }
+};
+
+const WishlistService = {
+  addToWishlist,
+  listWishlist,
+  updateWishlistItem,
+  removeFromWishlist,
+};
 
 export default WishlistService;
