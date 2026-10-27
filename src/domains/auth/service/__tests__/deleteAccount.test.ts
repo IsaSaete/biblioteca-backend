@@ -4,7 +4,11 @@ import {
   connectToMemoryDatabase,
   disconnectMemoryDatabase,
 } from "../../../../test/memoryDatabase.js";
-import { buildCreateBookDto } from "../../../books/fixtures/books.fixtures.js";
+import {
+  OTHER_EDITION_ISBN_13,
+  buildCreateBookDto,
+} from "../../../books/fixtures/books.fixtures.js";
+import { buildAddToWishlistDto } from "../../../wishlist/fixtures/wishlist.fixtures.js";
 import { buildCreateQuoteDto } from "../../../quotes/fixtures/quotes.fixtures.js";
 import {
   buildLoginDto,
@@ -28,6 +32,10 @@ const { default: QuotesService } =
 const { default: Quote } = await import("../../../quotes/model/Quote.js");
 const { default: Ejemplar } = await import("../../../books/model/Ejemplar.js");
 const { default: Book } = await import("../../../books/model/Book.js");
+const { default: WishlistItem } =
+  await import("../../../wishlist/model/WishlistItem.js");
+const { default: WishlistService } =
+  await import("../../../wishlist/service/WishlistService.js");
 const { default: AuthService } = await import("../AuthService.js");
 const { default: User } = await import("../../model/User.js");
 const { default: mongoose } = await import("mongoose");
@@ -46,6 +54,12 @@ afterAll(async () => {
 
 const registerOther = () =>
   AuthService.registerUser(buildRegisterDto({ email: "otra@example.com" }));
+
+const addWishlistItem = (userId: string) =>
+  WishlistService.addToWishlist(
+    userId,
+    buildAddToWishlistDto({ isbn: OTHER_EDITION_ISBN_13 }),
+  );
 
 const addBookWithQuote = async (userId: string) => {
   const { ejemplar } = await BooksService.createBook(
@@ -69,6 +83,18 @@ describe("Given the AuthService.deleteAccount function", () => {
       expect(await User.findById(user.id)).toBeNull();
       expect(await Ejemplar.countDocuments({ userId: user.id })).toBe(0);
       expect(await Quote.countDocuments({ userId: user.id })).toBe(0);
+    });
+
+    it("Then it should delete their wishlist items but keep the shared Libro", async () => {
+      const { user } = await AuthService.registerUser(buildRegisterDto());
+      await addWishlistItem(user.id);
+
+      await AuthService.deleteAccount(user.id, {
+        password: validRegisterDto.password,
+      });
+
+      expect(await WishlistItem.countDocuments({ userId: user.id })).toBe(0);
+      expect(await Book.countDocuments()).toBe(1);
     });
 
     it("Then it should keep the shared Libro", async () => {
@@ -101,15 +127,18 @@ describe("Given the AuthService.deleteAccount function", () => {
       const { user: other } = await registerOther();
       await addBookWithQuote(user.id);
       await addBookWithQuote(other.id);
+      await addWishlistItem(user.id);
+      await addWishlistItem(other.id);
 
       await AuthService.deleteAccount(user.id, {
         password: validRegisterDto.password,
       });
 
+      expect(await WishlistItem.countDocuments({ userId: other.id })).toBe(1);
       expect(await User.findById(other.id)).not.toBeNull();
       expect(await Ejemplar.countDocuments({ userId: other.id })).toBe(1);
       expect(await Quote.countDocuments({ userId: other.id })).toBe(2);
-      expect(await Book.countDocuments()).toBe(1);
+      expect(await Book.countDocuments()).toBe(2);
     });
   });
 
@@ -117,6 +146,7 @@ describe("Given the AuthService.deleteAccount function", () => {
     it("Then it should fail with AUTH_INVALID_CREDENTIALS and delete nothing", async () => {
       const { user } = await AuthService.registerUser(buildRegisterDto());
       await addBookWithQuote(user.id);
+      await addWishlistItem(user.id);
 
       await expect(
         AuthService.deleteAccount(user.id, { password: "Wr0ng!Password" }),
@@ -127,6 +157,7 @@ describe("Given the AuthService.deleteAccount function", () => {
       expect(await User.findById(user.id)).not.toBeNull();
       expect(await Ejemplar.countDocuments({ userId: user.id })).toBe(1);
       expect(await Quote.countDocuments({ userId: user.id })).toBe(2);
+      expect(await WishlistItem.countDocuments({ userId: user.id })).toBe(1);
     });
   });
 
