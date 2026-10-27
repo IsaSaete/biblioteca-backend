@@ -7,7 +7,6 @@ import {
 import Book from "../../../books/model/Book.js";
 import Ejemplar from "../../../books/model/Ejemplar.js";
 import { buildAddToWishlistDto } from "../../fixtures/wishlist.fixtures.js";
-import { buildCreateBookDto } from "../../../books/fixtures/books.fixtures.js";
 import BooksService from "../../../books/service/BooksService.js";
 import WishlistItem from "../../model/WishlistItem.js";
 import WishlistService from "../WishlistService.js";
@@ -95,11 +94,13 @@ describe("Given the WishlistService.acquireFromWishlist function", () => {
     it("Then it should remove the item without error and return the Ejemplar they already had", async () => {
       const userId = newUserId();
       const item = await addToWishlist(userId);
-      // El libro llegó a la biblioteca por otra vía, sin pasar por el deseado.
-      const owned = await BooksService.createBook(
+      // Ya no se llega aquí por POST /books (que retira el deseado): queda el
+      // caso de una carrera entre las dos altas o de datos anteriores.
+      const owned = await Ejemplar.create({
         userId,
-        buildCreateBookDto({ status: "read" }),
-      );
+        bookId: new Types.ObjectId(item.book.id),
+        status: "read",
+      });
 
       const result = await WishlistService.acquireFromWishlist(
         userId,
@@ -109,7 +110,7 @@ describe("Given the WishlistService.acquireFromWishlist function", () => {
         },
       );
 
-      expect(result.ejemplar.id).toBe(owned.ejemplar.id);
+      expect(result.ejemplar.id).toBe(owned._id.toString());
       expect(result.ejemplar.status).toBe("read");
       expect(await Ejemplar.countDocuments({ userId })).toBe(1);
       expect(await WishlistItem.countDocuments({ userId })).toBe(0);

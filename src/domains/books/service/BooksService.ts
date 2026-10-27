@@ -4,6 +4,7 @@ import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import Book from "../model/Book.js";
 import Ejemplar from "../model/Ejemplar.js";
 import Quote from "../../quotes/model/Quote.js";
+import WishlistItem from "../../wishlist/model/WishlistItem.js";
 import mapBookToDto, { type BookRecord } from "../mapper/mapBookToDto.js";
 import mapEjemplarToDto, {
   type EjemplarRecord,
@@ -88,19 +89,16 @@ const createBook = async (
     }
   }
 
+  const overrides = isNew ? undefined : buildOverrides(book, dto);
+  let ejemplar;
+
   try {
-    const overrides = isNew ? undefined : buildOverrides(book, dto);
-    const ejemplar = await Ejemplar.create({
+    ejemplar = await Ejemplar.create({
       userId,
       bookId: book._id,
       status: dto.status,
       ...(overrides && { overrides }),
     });
-
-    return {
-      book: mapBookToDto(book),
-      ejemplar: mapEjemplarToDto(ejemplar.toObject()),
-    };
   } catch (error) {
     if (isDuplicateKeyError(error)) {
       throw BOOK_ALREADY_IN_LIBRARY;
@@ -108,6 +106,14 @@ const createBook = async (
 
     throw error;
   }
+
+  // Si el libro estaba en su lista de deseos, ya lo tiene: el deseado sobra (D-036).
+  await WishlistItem.deleteOne({ userId, bookId: book._id });
+
+  return {
+    book: mapBookToDto(book),
+    ejemplar: mapEjemplarToDto(ejemplar.toObject()),
+  };
 };
 
 interface LibraryRow extends EjemplarRecord {

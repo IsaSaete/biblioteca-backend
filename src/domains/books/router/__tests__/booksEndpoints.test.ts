@@ -10,6 +10,7 @@ import createSessionCookie, {
 import app from "../../../../server/app.js";
 import Book from "../../model/Book.js";
 import Ejemplar from "../../model/Ejemplar.js";
+import WishlistItem from "../../../wishlist/model/WishlistItem.js";
 import { LIBRARY_PAGE_SIZE } from "../../service/BooksService.js";
 import {
   OTHER_EDITION_ISBN_13,
@@ -21,6 +22,7 @@ beforeAll(async () => {
   await connectToMemoryDatabase();
   await Book.init();
   await Ejemplar.init();
+  await WishlistItem.init();
 });
 
 afterEach(async () => {
@@ -39,6 +41,25 @@ const postBook = (cookie: string, body: unknown) =>
     .send(body as object);
 
 describe("Given the POST /books endpoint", () => {
+  describe("When the user adds a book that was in their wishlist", () => {
+    it("Then it should respond 201 and the book should leave the wishlist", async () => {
+      const { cookie } = createSessionCookie();
+      await request(app)
+        .post("/wishlist")
+        .set("Cookie", cookie)
+        .set("X-CSRF-Token", CSRF_TOKEN)
+        .send(buildCreateBookDto());
+
+      const response = await postBook(cookie, buildCreateBookDto());
+      const wishlist = await request(app)
+        .get("/wishlist")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(201);
+      expect(wishlist.body).toEqual({ items: [], nextCursor: null, total: 0 });
+    });
+  });
+
   describe("When a logged-in user sends a complete book", () => {
     it("Then it should respond 201 with { book, ejemplar } and a pending Ejemplar", async () => {
       const { cookie } = createSessionCookie();
