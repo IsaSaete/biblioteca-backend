@@ -1,5 +1,6 @@
 import { Types, type QueryFilter } from "mongoose";
 import ConflictError from "../../../shared/errors/ConflictError.js";
+import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import Book from "../../books/model/Book.js";
 import Ejemplar from "../../books/model/Ejemplar.js";
 import type { BookRecord } from "../../books/mapper/mapBookToDto.js";
@@ -13,6 +14,7 @@ import WishlistItem, {
   type WishlistItemDocument,
 } from "../model/WishlistItem.js";
 import mapWishlistItemToDto from "../mapper/mapWishlistItemToDto.js";
+import validateUpdateWishlistItemDto from "../validator/validateUpdateWishlistItemDto.js";
 import validateListWishlistQuery from "../validator/validateListWishlistQuery.js";
 import validateAddToWishlistDto from "../validator/validateAddToWishlistDto.js";
 import type { WishlistItemDto, WishlistPageDto } from "../types/types.js";
@@ -22,6 +24,11 @@ export const WISHLIST_PAGE_SIZE = 24;
 const BOOK_ALREADY_IN_LIBRARY = new ConflictError(
   "BOOK_ALREADY_IN_LIBRARY",
   "Este libro ya está en tu biblioteca",
+);
+
+const WISHLIST_ITEM_NOT_FOUND = new NotFoundError(
+  "WISHLIST_ITEM_NOT_FOUND",
+  "El libro no está en tu lista de deseos",
 );
 
 const BOOK_ALREADY_IN_WISHLIST = new ConflictError(
@@ -120,6 +127,41 @@ const listWishlist = async (
   };
 };
 
-const WishlistService = { addToWishlist, listWishlist };
+// Solo se puede editar la nota. Un deseado ajeno o un id mal formado dan el
+// mismo 404, para no revelar si existe para otro usuario.
+const updateWishlistItem = async (
+  userId: string,
+  itemId: string,
+  body: unknown,
+): Promise<WishlistItemDto> => {
+  if (!Types.ObjectId.isValid(itemId)) {
+    throw WISHLIST_ITEM_NOT_FOUND;
+  }
+
+  const dto = validateUpdateWishlistItemDto(body);
+
+  const update =
+    dto.note === undefined
+      ? {}
+      : dto.note
+        ? { $set: { note: dto.note } }
+        : { $unset: { note: 1 } };
+
+  const item = await WishlistItem.findOneAndUpdate(
+    { _id: itemId, userId },
+    update,
+    { returnDocument: "after" },
+  ).lean();
+
+  const book = item && (await Book.findById(item.bookId).lean());
+
+  if (!item || !book) {
+    throw WISHLIST_ITEM_NOT_FOUND;
+  }
+
+  return mapWishlistItemToDto(item, book);
+};
+
+const WishlistService = { addToWishlist, listWishlist, updateWishlistItem };
 
 export default WishlistService;
