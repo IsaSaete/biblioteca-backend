@@ -9,6 +9,11 @@ export interface AddToWishlistDto {
   note?: string;
 }
 
+// `note: null` (o vacía) borra la nota; sin `note`, no cambia nada.
+export interface UpdateWishlistItemDto {
+  note?: string | null;
+}
+
 export interface WishlistItemDto {
   id: string;
   book: BookDto;
