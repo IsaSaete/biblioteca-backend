@@ -8,6 +8,8 @@ import mapBookToDto, { type BookRecord } from "../mapper/mapBookToDto.js";
 import mapEjemplarToDto, {
   type EjemplarRecord,
 } from "../mapper/mapEjemplarToDto.js";
+import findOrCreateBook from "./findOrCreateBook.js";
+import isDuplicateKeyError from "../utils/isDuplicateKeyError.js";
 import validateCreateBookDto from "../validator/validateCreateBookDto.js";
 import validateUpdateEjemplarDto from "../validator/validateUpdateEjemplarDto.js";
 import validateListLibraryQuery from "../validator/validateListLibraryQuery.js";
@@ -31,8 +33,6 @@ import type {
 
 export const LIBRARY_PAGE_SIZE = 24;
 
-const MONGO_DUPLICATE_KEY_ERROR = 11000;
-
 const BOOK_ALREADY_IN_LIBRARY = new ConflictError(
   "BOOK_ALREADY_IN_LIBRARY",
   "Este libro ya está en tu biblioteca",
@@ -42,12 +42,6 @@ const BOOK_NOT_FOUND = new NotFoundError(
   "BOOK_NOT_FOUND",
   "El libro no está en tu biblioteca",
 );
-
-const isDuplicateKeyError = (error: unknown): boolean =>
-  typeof error === "object" &&
-  error !== null &&
-  "code" in error &&
-  error.code === MONGO_DUPLICATE_KEY_ERROR;
 
 const isSameValue = (a: unknown, b: unknown): boolean =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -77,36 +71,6 @@ const buildOverrides = (
   }
 
   return Object.keys(overrides).length > 0 ? overrides : undefined;
-};
-
-const findOrCreateBook = async (
-  dto: CreateBookDto,
-): Promise<{ book: BookRecord; isNew: boolean }> => {
-  if (dto.isbn) {
-    const existingBook = await Book.findOne({ isbn: dto.isbn }).lean();
-
-    if (existingBook) {
-      return { book: existingBook, isNew: false };
-    }
-  }
-
-  try {
-    const { status: _status, ...bookFields } = dto;
-    const createdBook = await Book.create(bookFields);
-
-    return { book: createdBook.toObject(), isNew: true };
-  } catch (error) {
-    // Otra petición creó el mismo ISBN entre la comprobación y el alta.
-    if (dto.isbn && isDuplicateKeyError(error)) {
-      const concurrentBook = await Book.findOne({ isbn: dto.isbn }).lean();
-
-      if (concurrentBook) {
-        return { book: concurrentBook, isNew: false };
-      }
-    }
-
-    throw error;
-  }
 };
 
 const createBook = async (
