@@ -3,6 +3,7 @@ import Book from "../../books/model/Book.js";
 import Ejemplar from "../../books/model/Ejemplar.js";
 import mapBookToDto from "../../books/mapper/mapBookToDto.js";
 import mapEjemplarToDto from "../../books/mapper/mapEjemplarToDto.js";
+import WishlistItem from "../../wishlist/model/WishlistItem.js";
 import Quote from "../../quotes/model/Quote.js";
 import mapQuoteToDto from "../../quotes/mapper/mapQuoteToDto.js";
 import type { UserDocument } from "../model/User.js";
@@ -17,13 +18,16 @@ const exportUserData = async (
 ): Promise<ExportDataDto> => {
   const owner = user._id;
 
-  const [ejemplares, quotes] = await Promise.all([
+  const [ejemplares, quotes, wishlist] = await Promise.all([
     Ejemplar.find({ userId: owner }).sort({ createdAt: 1, _id: 1 }).lean(),
     Quote.find({ userId: owner }).sort({ createdAt: 1, _id: 1 }).lean(),
+    WishlistItem.find({ userId: owner }).sort({ createdAt: 1, _id: 1 }).lean(),
   ]);
 
   const books = await Book.find({
-    _id: { $in: ejemplares.map((ejemplar) => ejemplar.bookId) },
+    _id: {
+      $in: [...ejemplares, ...wishlist].map((record) => record.bookId),
+    },
   }).lean();
 
   const booksById = new Map(books.map((book) => [book._id.toString(), book]));
@@ -44,6 +48,19 @@ const exportUserData = async (
 
       return book
         ? [{ book: mapBookToDto(book), ejemplar: mapEjemplarToDto(ejemplar) }]
+        : [];
+    }),
+    wishlist: wishlist.flatMap((item) => {
+      const book = booksById.get(item.bookId.toString());
+
+      return book
+        ? [
+            {
+              book: mapBookToDto(book),
+              ...(item.note && { note: item.note }),
+              createdAt: item.createdAt.toISOString(),
+            },
+          ]
         : [];
     }),
     // Una cita cuyo libro ya no existe se exporta igual, como cita sin libro:

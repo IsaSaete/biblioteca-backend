@@ -6,6 +6,9 @@ import {
 } from "../../../../test/memoryDatabase.js";
 import Book from "../../model/Book.js";
 import Ejemplar from "../../model/Ejemplar.js";
+import WishlistItem from "../../../wishlist/model/WishlistItem.js";
+import WishlistService from "../../../wishlist/service/WishlistService.js";
+import { buildAddToWishlistDto } from "../../../wishlist/fixtures/wishlist.fixtures.js";
 import BooksService from "../BooksService.js";
 import {
   ISBN_10_OF_ISBN_13,
@@ -19,6 +22,7 @@ beforeAll(async () => {
   await connectToMemoryDatabase();
   await Book.init();
   await Ejemplar.init();
+  await WishlistItem.init();
 });
 
 afterEach(async () => {
@@ -196,6 +200,55 @@ describe("Given the BooksService.createBook function", () => {
         code: "VALIDATION_ERROR",
         field: "coverSource",
       });
+    });
+  });
+
+  describe("When the book was in the user's wishlist", () => {
+    it("Then it should remove the wishlist item and keep the Libro", async () => {
+      const userId = newUserId();
+      await WishlistService.addToWishlist(userId, buildAddToWishlistDto());
+
+      await BooksService.createBook(userId, buildCreateBookDto());
+
+      expect(await WishlistItem.countDocuments({ userId })).toBe(0);
+      expect(await Book.countDocuments()).toBe(1);
+    });
+
+    it("Then it should leave the other items of the wishlist alone", async () => {
+      const userId = newUserId();
+      await WishlistService.addToWishlist(userId, buildAddToWishlistDto());
+      await WishlistService.addToWishlist(userId, buildManualBookDto());
+
+      await BooksService.createBook(userId, buildCreateBookDto());
+
+      expect(await WishlistItem.countDocuments({ userId })).toBe(1);
+    });
+  });
+
+  describe("When another user has that book in their wishlist", () => {
+    it("Then it should not touch their item", async () => {
+      const other = newUserId();
+      await WishlistService.addToWishlist(other, buildAddToWishlistDto());
+
+      await BooksService.createBook(newUserId(), buildCreateBookDto());
+
+      expect(await WishlistItem.countDocuments({ userId: other })).toBe(1);
+    });
+  });
+
+  describe("When the user already has the book and tries to add it again", () => {
+    it("Then it should fail without touching their wishlist", async () => {
+      const userId = newUserId();
+      await BooksService.createBook(userId, buildCreateBookDto());
+      await WishlistItem.create({
+        userId,
+        bookId: (await Book.findOne())?._id,
+      });
+
+      await expect(
+        BooksService.createBook(userId, buildCreateBookDto()),
+      ).rejects.toMatchObject({ code: "BOOK_ALREADY_IN_LIBRARY" });
+      expect(await WishlistItem.countDocuments({ userId })).toBe(1);
     });
   });
 });

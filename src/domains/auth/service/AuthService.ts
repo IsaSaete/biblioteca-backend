@@ -4,6 +4,7 @@ import ValidationError from "../../../shared/errors/ValidationError.js";
 import UnauthorizedError from "../../../shared/errors/UnauthorizedError.js";
 import Ejemplar from "../../books/model/Ejemplar.js";
 import Quote from "../../quotes/model/Quote.js";
+import WishlistItem from "../../wishlist/model/WishlistItem.js";
 import exportUserData from "./exportUserData.js";
 import sendEmailChangeConfirmationEmail from "../../../shared/email/sendEmailChangeConfirmationEmail.js";
 import sendEmailChangeNoticeEmail from "../../../shared/email/sendEmailChangeNoticeEmail.js";
@@ -544,7 +545,8 @@ const exportData = async (userId: string): Promise<ExportDataDto> => {
   return exportUserData(user);
 };
 
-// Borrado inmediato y definitivo. Primero lo que depende del usuario y al final
+// Borrado inmediato y definitivo de todo lo suyo: citas, deseados, ejemplares y
+// usuario. Primero lo que depende del usuario y al final
 // el usuario: si algo falla a medias, la cuenta sigue existiendo y se puede
 // repetir. Los `Libro` no se tocan, son compartidos entre usuarios.
 const deleteAccount = async (userId: string, body: unknown): Promise<void> => {
@@ -566,6 +568,7 @@ const deleteAccount = async (userId: string, body: unknown): Promise<void> => {
   }
 
   await Quote.deleteMany({ userId: user._id });
+  await WishlistItem.deleteMany({ userId: user._id });
   await Ejemplar.deleteMany({ userId: user._id });
   await User.deleteOne({ _id: user._id });
 };

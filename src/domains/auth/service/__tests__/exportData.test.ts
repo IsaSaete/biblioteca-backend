@@ -5,7 +5,11 @@ import {
   disconnectMemoryDatabase,
 } from "../../../../test/memoryDatabase.js";
 import { buildJpegBuffer } from "../../fixtures/auth.fixtures.js";
-import { buildCreateBookDto } from "../../../books/fixtures/books.fixtures.js";
+import {
+  OTHER_EDITION_ISBN_13,
+  buildCreateBookDto,
+} from "../../../books/fixtures/books.fixtures.js";
+import { buildAddToWishlistDto } from "../../../wishlist/fixtures/wishlist.fixtures.js";
 import { buildCreateQuoteDto } from "../../../quotes/fixtures/quotes.fixtures.js";
 import { buildRegisterDto } from "../../fixtures/auth.fixtures.js";
 
@@ -22,6 +26,8 @@ const { default: BooksService } =
   await import("../../../books/service/BooksService.js");
 const { default: QuotesService } =
   await import("../../../quotes/service/QuotesService.js");
+const { default: WishlistService } =
+  await import("../../../wishlist/service/WishlistService.js");
 const { default: Quote } = await import("../../../quotes/model/Quote.js");
 const { default: Ejemplar } = await import("../../../books/model/Ejemplar.js");
 const { default: AuthService } = await import("../AuthService.js");
@@ -42,6 +48,16 @@ afterAll(async () => {
 
 const registerOther = () =>
   AuthService.registerUser(buildRegisterDto({ email: "otra@example.com" }));
+
+const addWishlistItem = (userId: string, note?: string) =>
+  WishlistService.addToWishlist(
+    userId,
+    buildAddToWishlistDto({
+      isbn: OTHER_EDITION_ISBN_13,
+      title: "Pedro Páramo",
+      note,
+    }),
+  );
 
 describe("Given the AuthService.exportData function", () => {
   describe("When the user has books and quotes", () => {
@@ -91,6 +107,33 @@ describe("Given the AuthService.exportData function", () => {
     });
   });
 
+  describe("When the user has books in their wishlist", () => {
+    it("Then it should export them with the Libro, the note and the date, and without any id of the item", async () => {
+      const { user } = await AuthService.registerUser(buildRegisterDto());
+      const item = await addWishlistItem(user.id, "Para el verano");
+
+      const data = await AuthService.exportData(user.id);
+
+      expect(data.wishlist).toEqual([
+        {
+          book: item.book,
+          note: "Para el verano",
+          createdAt: item.createdAt,
+        },
+      ]);
+      expect(data.books).toEqual([]);
+    });
+
+    it("Then an item without note should not carry the field", async () => {
+      const { user } = await AuthService.registerUser(buildRegisterDto());
+      await addWishlistItem(user.id);
+
+      const data = await AuthService.exportData(user.id);
+
+      expect(data.wishlist[0]).not.toHaveProperty("note");
+    });
+  });
+
   describe("When the user has nothing saved", () => {
     it("Then books and quotes should be empty lists", async () => {
       const { user } = await AuthService.registerUser(buildRegisterDto());
@@ -99,6 +142,7 @@ describe("Given the AuthService.exportData function", () => {
 
       expect(data.books).toEqual([]);
       expect(data.quotes).toEqual([]);
+      expect(data.wishlist).toEqual([]);
     });
   });
 
@@ -138,11 +182,13 @@ describe("Given the AuthService.exportData function", () => {
         other.id,
         buildCreateQuoteDto(ejemplar.id),
       );
+      await addWishlistItem(other.id);
 
       const data = await AuthService.exportData(user.id);
 
       expect(data.books).toEqual([]);
       expect(data.quotes).toEqual([]);
+      expect(data.wishlist).toEqual([]);
       expect(JSON.stringify(data)).not.toContain("otra@example.com");
     });
   });
