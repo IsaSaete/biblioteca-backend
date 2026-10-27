@@ -6,7 +6,11 @@ import {
   disconnectMemoryDatabase,
 } from "../../../../test/memoryDatabase.js";
 import getCookieValue from "../../../../test/getCookieValue.js";
-import { buildCreateBookDto } from "../../../books/fixtures/books.fixtures.js";
+import {
+  OTHER_EDITION_ISBN_13,
+  buildCreateBookDto,
+} from "../../../books/fixtures/books.fixtures.js";
+import { buildAddToWishlistDto } from "../../../wishlist/fixtures/wishlist.fixtures.js";
 import { buildCreateQuoteDto } from "../../../quotes/fixtures/quotes.fixtures.js";
 import { buildRegisterDto } from "../../fixtures/auth.fixtures.js";
 
@@ -21,6 +25,8 @@ jest.unstable_mockModule(
 
 const { default: BooksService } =
   await import("../../../books/service/BooksService.js");
+const { default: WishlistService } =
+  await import("../../../wishlist/service/WishlistService.js");
 const { default: QuotesService } =
   await import("../../../quotes/service/QuotesService.js");
 const { default: app } = await import("../../../../server/app.js");
@@ -49,6 +55,14 @@ const registerWithData = async () => {
     buildCreateBookDto(),
   );
   await QuotesService.createQuote(userId, buildCreateQuoteDto(ejemplar.id));
+  await WishlistService.addToWishlist(
+    userId,
+    buildAddToWishlistDto({
+      isbn: OTHER_EDITION_ISBN_13,
+      title: "Pedro Páramo",
+      note: "Para el verano",
+    }),
+  );
 
   return {
     userId,
@@ -81,6 +95,13 @@ describe("Given the GET /auth/me/export endpoint", () => {
         },
         books: [{ book: expect.any(Object), ejemplar: expect.any(Object) }],
         quotes: [expect.objectContaining({ page: 9 })],
+        wishlist: [
+          {
+            book: expect.objectContaining({ title: "Pedro Páramo" }),
+            note: "Para el verano",
+            createdAt: expect.any(String),
+          },
+        ],
       });
     });
 
