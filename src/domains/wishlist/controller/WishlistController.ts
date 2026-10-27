@@ -66,10 +66,28 @@ const updateWishlistItem = async (
   }
 };
 
+const removeFromWishlist = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    await WishlistService.removeFromWishlist(
+      getSessionUserId(req),
+      req.params.id,
+    );
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 const WishlistController = {
   addToWishlist,
   listWishlist,
   updateWishlistItem,
+  removeFromWishlist,
 };
 
 export default WishlistController;

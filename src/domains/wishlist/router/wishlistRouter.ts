@@ -10,5 +10,10 @@ wishlistRouter.use(authMiddleware);
 wishlistRouter.get("/", WishlistController.listWishlist);
 wishlistRouter.post("/", handleCsrf, WishlistController.addToWishlist);
 wishlistRouter.patch("/:id", handleCsrf, WishlistController.updateWishlistItem);
+wishlistRouter.delete(
+  "/:id",
+  handleCsrf,
+  WishlistController.removeFromWishlist,
+);
 
 export default wishlistRouter;
