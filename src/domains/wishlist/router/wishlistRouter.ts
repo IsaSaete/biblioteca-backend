@@ -15,5 +15,10 @@ wishlistRouter.delete(
   handleCsrf,
   WishlistController.removeFromWishlist,
 );
+wishlistRouter.post(
+  "/:id/acquire",
+  handleCsrf,
+  WishlistController.acquireFromWishlist,
+);
 
 export default wishlistRouter;
