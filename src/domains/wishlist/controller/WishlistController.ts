@@ -83,11 +83,30 @@ const removeFromWishlist = async (
   }
 };
 
+const acquireFromWishlist = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const libraryItem = await WishlistService.acquireFromWishlist(
+      getSessionUserId(req),
+      req.params.id,
+      req.body,
+    );
+
+    res.status(201).json(libraryItem);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const WishlistController = {
   addToWishlist,
   listWishlist,
   updateWishlistItem,
   removeFromWishlist,
+  acquireFromWishlist,
 };
 
 export default WishlistController;

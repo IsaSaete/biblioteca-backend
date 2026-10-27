@@ -3,6 +3,9 @@ import ConflictError from "../../../shared/errors/ConflictError.js";
 import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import Book from "../../books/model/Book.js";
 import Ejemplar from "../../books/model/Ejemplar.js";
+import mapBookToDto from "../../books/mapper/mapBookToDto.js";
+import mapEjemplarToDto from "../../books/mapper/mapEjemplarToDto.js";
+import type { LibraryItemDto } from "../../books/types/types.js";
 import type { BookRecord } from "../../books/mapper/mapBookToDto.js";
 import {
   decodeLibraryCursor,
@@ -14,6 +17,7 @@ import WishlistItem, {
   type WishlistItemDocument,
 } from "../model/WishlistItem.js";
 import mapWishlistItemToDto from "../mapper/mapWishlistItemToDto.js";
+import validateAcquireWishlistItemDto from "../validator/validateAcquireWishlistItemDto.js";
 import validateUpdateWishlistItemDto from "../validator/validateUpdateWishlistItemDto.js";
 import validateListWishlistQuery from "../validator/validateListWishlistQuery.js";
 import validateAddToWishlistDto from "../validator/validateAddToWishlistDto.js";
@@ -178,11 +182,63 @@ const removeFromWishlist = async (
   }
 };
 
+// «Ya lo tengo»: el libro pasa a la biblioteca con las mismas reglas que
+// POST /books y el deseado desaparece. Si el usuario ya lo tenía en la
+// biblioteca no es un error: se retira el deseado y se devuelve su Ejemplar.
+// El Ejemplar se crea antes de borrar el deseado: si algo fallara entre los
+// dos pasos, no se pierde el libro.
+const acquireFromWishlist = async (
+  userId: string,
+  itemId: string,
+  body: unknown,
+): Promise<LibraryItemDto> => {
+  if (!Types.ObjectId.isValid(itemId)) {
+    throw WISHLIST_ITEM_NOT_FOUND;
+  }
+
+  const { status } = validateAcquireWishlistItemDto(body);
+
+  const item = await WishlistItem.findOne({ _id: itemId, userId }).lean();
+  const book = item && (await Book.findById(item.bookId).lean());
+
+  if (!item || !book) {
+    throw WISHLIST_ITEM_NOT_FOUND;
+  }
+
+  const existing = await Ejemplar.findOne({ userId, bookId: book._id }).lean();
+
+  let ejemplar = existing;
+
+  if (!ejemplar) {
+    try {
+      ejemplar = (
+        await Ejemplar.create({ userId, bookId: book._id, status })
+      ).toObject();
+    } catch (error) {
+      // Otra petición lo añadió a la biblioteca entre la comprobación y el alta.
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+
+      ejemplar = await Ejemplar.findOne({ userId, bookId: book._id }).lean();
+    }
+  }
+
+  if (!ejemplar) {
+    throw WISHLIST_ITEM_NOT_FOUND;
+  }
+
+  await WishlistItem.deleteOne({ _id: item._id });
+
+  return { book: mapBookToDto(book), ejemplar: mapEjemplarToDto(ejemplar) };
+};
+
 const WishlistService = {
   addToWishlist,
   listWishlist,
   updateWishlistItem,
   removeFromWishlist,
+  acquireFromWishlist,
 };
 
 export default WishlistService;

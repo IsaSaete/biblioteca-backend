@@ -1,4 +1,8 @@
-import type { BookDto, CreateBookDto } from "../../books/types/types.js";
+import type {
+  BookDto,
+  CreateBookDto,
+  ReadingStatus,
+} from "../../books/types/types.js";
 
 export const MAX_NOTE_LENGTH = 500;
 
@@ -12,6 +16,11 @@ export interface AddToWishlistDto {
 // `note: null` (o vacía) borra la nota; sin `note`, no cambia nada.
 export interface UpdateWishlistItemDto {
   note?: string | null;
+}
+
+// Estado de lectura con el que entra el libro en la biblioteca.
+export interface AcquireWishlistItemDto {
+  status: ReadingStatus;
 }
 
 export interface WishlistItemDto {
