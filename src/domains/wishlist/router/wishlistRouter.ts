@@ -7,6 +7,7 @@ const wishlistRouter = Router();
 
 wishlistRouter.use(authMiddleware);
 
+wishlistRouter.get("/", WishlistController.listWishlist);
 wishlistRouter.post("/", handleCsrf, WishlistController.addToWishlist);
 
 export default wishlistRouter;
