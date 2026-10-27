@@ -84,4 +84,5 @@ export interface ExportDataDto {
   user: { id: string; name: string; email: string; createdAt: string };
   books: { book: BookDto; ejemplar: EjemplarDto }[];
   quotes: QuoteDto[];
+  wishlist: { book: BookDto; note?: string; createdAt: string }[];
 }
