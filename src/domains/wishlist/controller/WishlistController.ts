@@ -31,6 +31,23 @@ const addToWishlist = async (
   }
 };
 
-const WishlistController = { addToWishlist };
+const listWishlist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const page = await WishlistService.listWishlist(
+      getSessionUserId(req),
+      req.query,
+    );
+
+    res.status(200).json(page);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const WishlistController = { addToWishlist, listWishlist };
 
 export default WishlistController;

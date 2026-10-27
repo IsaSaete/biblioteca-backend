@@ -15,3 +15,9 @@ export interface WishlistItemDto {
   note?: string;
   createdAt: string;
 }
+
+export interface WishlistPageDto {
+  items: WishlistItemDto[];
+  nextCursor: string | null;
+  total: number;
+}
