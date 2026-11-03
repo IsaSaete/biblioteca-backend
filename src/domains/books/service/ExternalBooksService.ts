@@ -16,29 +16,66 @@ const providerUnavailable = (): BadGatewayError =>
     "Lo sentimos, no hemos podido encontrar este libro. Puedes añadirlo manualmente",
   );
 
-// El proveedor que respondió puede conocer el libro y no tener portada. Los
-// demás se consultan solo para completarla; si fallan o tampoco la tienen, el
-// libro se devuelve igual sin portada.
-const findCoverElsewhere = async (
+// El proveedor que respondió puede conocer el libro y no traer algún dato:
+// la portada, el autor, la editorial, el año o las páginas.
+const hasMissingFields = (book: ExternalBookDto): boolean =>
+  !book.coverUrl ||
+  book.authors.length === 0 ||
+  !book.publisher ||
+  !book.publishedYear ||
+  !book.pageCount;
+
+// Rellena solo lo que falta en `book` con lo que trae `other`: nunca pisa un
+// dato que ya estaba. La portada y su origen van siempre juntos.
+const fillGaps = (
+  book: ExternalBookDto,
+  other: ExternalBookDto,
+): ExternalBookDto => ({
+  ...book,
+  ...(!book.coverUrl &&
+    other.coverUrl &&
+    other.coverSource && {
+      coverUrl: other.coverUrl,
+      coverSource: other.coverSource,
+    }),
+  ...(book.authors.length === 0 &&
+    other.authors.length > 0 && { authors: other.authors }),
+  ...(!book.publisher && other.publisher && { publisher: other.publisher }),
+  ...(!book.publishedYear &&
+    other.publishedYear && { publishedYear: other.publishedYear }),
+  ...(!book.pageCount && other.pageCount && { pageCount: other.pageCount }),
+});
+
+// Los demás proveedores se consultan solo para completar lo que falte, por
+// orden y hasta que no falte nada; si fallan o tampoco lo tienen, el libro se
+// devuelve igual con lo que haya.
+const completeFromOtherProviders = async (
+  book: ExternalBookDto,
   providers: BookProvider[],
   isbn: string,
-): Promise<Pick<ExternalBookDto, "coverUrl" | "coverSource">> => {
+): Promise<ExternalBookDto> => {
+  let completed = book;
+
   for (const provider of providers) {
+    if (!hasMissingFields(completed)) {
+      break;
+    }
+
     try {
       const other = await provider.findByIsbn(isbn);
 
-      if (other?.coverUrl && other.coverSource) {
-        return { coverUrl: other.coverUrl, coverSource: other.coverSource };
+      if (other) {
+        completed = fillGaps(completed, other);
       }
     } catch (error) {
       logger.warn(
         { provider: provider.name, reason: (error as Error).message },
-        "Book provider failed while looking for a cover",
+        "Book provider failed while completing missing fields",
       );
     }
   }
 
-  return {};
+  return completed;
 };
 
 export interface ExternalBooksService {
@@ -91,14 +128,13 @@ const createExternalBooksService = (
       );
 
       if (result) {
-        const coverUrl = result.coverUrl
-          ? {}
-          : await findCoverElsewhere(
-              providers.filter((provider) => provider !== answered),
-              isbn,
-            );
+        const completed = await completeFromOtherProviders(
+          result,
+          providers.filter((provider) => provider !== answered),
+          isbn,
+        );
 
-        return { ...result, ...coverUrl, isbn };
+        return { ...completed, isbn };
       }
 
       if (anyFailed) {

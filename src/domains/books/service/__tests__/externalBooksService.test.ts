@@ -70,6 +70,106 @@ describe("Given the ExternalBooksService.lookupByIsbn function", () => {
     });
   });
 
+  describe("When the main provider knows the book but has no publisher and the fallback has it", () => {
+    it("Then it should complete the publisher and keep the rest of the main book", async () => {
+      const withoutPublisher = buildExternalBook({ publisher: undefined });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { book: withoutPublisher }),
+        buildFakeProvider("open_library", {
+          book: buildExternalBook({
+            publisher: "Booket",
+            title: "Otro título",
+            coverSource: "open_library",
+          }),
+        }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).toEqual({ ...withoutPublisher, publisher: "Booket" });
+    });
+  });
+
+  describe("When the main provider knows the book but has no authors and the fallback has them", () => {
+    it("Then it should complete the authors", async () => {
+      const withoutAuthors = buildExternalBook({ authors: [] });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { book: withoutAuthors }),
+        buildFakeProvider("open_library", {
+          book: buildExternalBook({ authors: ["Carlos Ruiz Zafón"] }),
+        }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book.authors).toEqual(["Carlos Ruiz Zafón"]);
+    });
+  });
+
+  describe("When the main provider lacks the year and the pages and the fallback has them", () => {
+    it("Then it should complete both without touching what the main book had", async () => {
+      const sparse = buildExternalBook({
+        publishedYear: undefined,
+        pageCount: undefined,
+      });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { book: sparse }),
+        buildFakeProvider("open_library", {
+          book: buildExternalBook({
+            publishedYear: 1999,
+            pageCount: 300,
+            publisher: "Otra editorial",
+          }),
+        }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).toEqual({ ...sparse, publishedYear: 1999, pageCount: 300 });
+    });
+  });
+
+  describe("When neither provider has the missing publisher", () => {
+    it("Then it should return the main book as it was", async () => {
+      const withoutPublisher = buildExternalBook({ publisher: undefined });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { book: withoutPublisher }),
+        buildFakeProvider("open_library", { book: withoutPublisher }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).toEqual(withoutPublisher);
+    });
+  });
+
+  describe("When the main provider lacks several fields and a third provider has the rest", () => {
+    it("Then it should keep asking until nothing is missing", async () => {
+      const sparse = buildExternalBook({ publisher: undefined, authors: [] });
+      const second = buildFakeProvider("second", {
+        book: buildExternalBook({ authors: ["Autora"], publisher: undefined }),
+      });
+      const third = buildFakeProvider("third", {
+        book: buildExternalBook({ publisher: "Editorial" }),
+      });
+      const askThird = jest.spyOn(third, "findByIsbn");
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { book: sparse }),
+        second,
+        third,
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).toEqual({
+        ...sparse,
+        authors: ["Autora"],
+        publisher: "Editorial",
+      });
+      expect(askThird).toHaveBeenCalled();
+    });
+  });
+
   describe("When the main provider does not know the ISBN but the fallback does", () => {
     it("Then it should return the fallback's book", async () => {
       const service = createExternalBooksService([
