@@ -146,6 +146,78 @@ describe("Given the BooksService.updateEjemplar function", () => {
     });
   });
 
+  describe("When the book is lent", () => {
+    it("Then it should save the borrower and the date it was lent", async () => {
+      const userId = newUserId();
+      const bookId = await addBook(userId);
+
+      const ejemplar = await BooksService.updateEjemplar(userId, bookId, {
+        loan: { borrowerName: "  María  " },
+      });
+
+      expect(ejemplar.loan).toEqual({
+        borrowerName: "María",
+        lentAt: expect.any(String),
+      });
+    });
+
+    it("Then changing the name should keep the original date", async () => {
+      const userId = newUserId();
+      const bookId = await addBook(userId);
+      const first = await BooksService.updateEjemplar(userId, bookId, {
+        loan: { borrowerName: "María" },
+      });
+
+      const renamed = await BooksService.updateEjemplar(userId, bookId, {
+        loan: { borrowerName: "Marta" },
+      });
+
+      expect(renamed.loan).toEqual({
+        borrowerName: "Marta",
+        lentAt: first.loan?.lentAt,
+      });
+    });
+  });
+
+  describe("When the book is marked as returned", () => {
+    it("Then it should remove the loan and keep the rest", async () => {
+      const userId = newUserId();
+      const bookId = await addBook(userId);
+      await BooksService.updateEjemplar(userId, bookId, {
+        favorite: true,
+        loan: { borrowerName: "María" },
+      });
+
+      const ejemplar = await BooksService.updateEjemplar(userId, bookId, {
+        loan: null,
+      });
+
+      expect(ejemplar).not.toHaveProperty("loan");
+      expect(ejemplar.favorite).toBe(true);
+    });
+  });
+
+  describe("When the borrower name is not valid", () => {
+    it.each([
+      ["empty", { loan: { borrowerName: "   " } }],
+      ["too long", { loan: { borrowerName: "a".repeat(81) } }],
+      ["missing", { loan: {} }],
+    ])(
+      "Then it should throw VALIDATION_ERROR when it is %s",
+      async (_case, body) => {
+        const userId = newUserId();
+        const bookId = await addBook(userId);
+
+        await expect(
+          BooksService.updateEjemplar(userId, bookId, body),
+        ).rejects.toMatchObject({
+          code: "VALIDATION_ERROR",
+          field: "loan.borrowerName",
+        });
+      },
+    );
+  });
+
   describe("When the value is invalid", () => {
     it.each([
       ["format", { format: "ebook" }],

@@ -850,3 +850,60 @@ describe("Given the GET /books/tags endpoint", () => {
     });
   });
 });
+
+describe("Given the book loan endpoints", () => {
+  describe("When the user lends a book, lists the lent ones and gets it back", () => {
+    it("Then the loan shows in the book and in the lent filter until it is returned", async () => {
+      const { cookie } = createSessionCookie();
+      const added = await postBook(cookie, buildManualBookDto());
+      await postBook(cookie, buildManualBookDto({ title: "Otro libro" }));
+      const bookId = added.body.book.id;
+      const patch = (body: object) =>
+        request(app)
+          .patch(`/books/${bookId}/ejemplar`)
+          .set("Cookie", cookie)
+          .set("X-CSRF-Token", CSRF_TOKEN)
+          .send(body);
+
+      const lent = await patch({ loan: { borrowerName: "María" } });
+      const detail = await request(app)
+        .get(`/books/${bookId}`)
+        .set("Cookie", cookie);
+      const lentList = await request(app)
+        .get("/books")
+        .set("Cookie", cookie)
+        .query({ lent: "true" });
+      const returned = await patch({ loan: null });
+      const afterReturn = await request(app)
+        .get("/books")
+        .set("Cookie", cookie)
+        .query({ lent: "true" });
+
+      expect(lent.status).toBe(200);
+      expect(lent.body.ejemplar.loan.borrowerName).toBe("María");
+      expect(detail.body.ejemplar.loan.borrowerName).toBe("María");
+      expect(lentList.body.total).toBe(1);
+      expect(returned.body.ejemplar).not.toHaveProperty("loan");
+      expect(afterReturn.body.total).toBe(0);
+    });
+  });
+
+  describe("When the borrower name is empty", () => {
+    it("Then it should respond 400 with the field loan.borrowerName", async () => {
+      const { cookie } = createSessionCookie();
+      const added = await postBook(cookie, buildManualBookDto());
+
+      const response = await request(app)
+        .patch(`/books/${added.body.book.id}/ejemplar`)
+        .set("Cookie", cookie)
+        .set("X-CSRF-Token", CSRF_TOKEN)
+        .send({ loan: { borrowerName: "  " } });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "loan.borrowerName",
+      });
+    });
+  });
+});

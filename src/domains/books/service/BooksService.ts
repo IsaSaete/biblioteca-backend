@@ -159,6 +159,7 @@ interface LibraryFilters {
   tag?: string;
   untagged?: boolean;
   favorite?: boolean;
+  lent?: boolean;
 }
 
 interface LibraryPipelineOptions extends LibraryFilters {
@@ -170,12 +171,14 @@ interface LibraryPipelineOptions extends LibraryFilters {
 // base de la tanda y del recuento total, para que ambos coincidan siempre.
 const buildFilteredLibraryStages = (
   userId: string,
-  { search, tag, untagged, favorite }: LibraryFilters,
+  { search, tag, untagged, favorite, lent }: LibraryFilters,
 ): PipelineStage[] => [
   {
     $match: {
       userId: new Types.ObjectId(userId),
       ...(favorite && { favorite: true }),
+      // Con `loan` el libro está prestado.
+      ...(lent && { loan: { $exists: true } }),
       // Sin etiquetas: ausente, nulo o vacío.
       ...(untagged && { tags: { $in: [null, []] } }),
       // Etiqueta completa, sin distinguir mayúsculas.
@@ -246,12 +249,13 @@ const listLibrary = async (
     tag,
     untagged,
     favorite,
+    lent,
     sort,
     cursor: rawCursor,
   } = validateListLibraryQuery(query);
   const cursor = rawCursor ? decodeLibraryCursor(rawCursor, sort) : undefined;
 
-  const filters = { search, tag, untagged, favorite };
+  const filters = { search, tag, untagged, favorite, lent };
 
   // La ordenación alfabética ignora mayúsculas y acentos (collation español).
   const [rows, totals] = await Promise.all([
@@ -356,7 +360,7 @@ const SCALAR_FIELDS = [
 
 // `null` borra el campo ($unset); un valor lo guarda ($set). Los overrides se
 // fusionan campo a campo con los que ya había.
-const buildEjemplarUpdate = (dto: UpdateEjemplarDto) => {
+const buildEjemplarUpdate = (dto: UpdateEjemplarDto, alreadyLent: boolean) => {
   const $set: Record<string, unknown> = {};
   const $unset: Record<string, 1> = {};
 
@@ -387,6 +391,15 @@ const buildEjemplarUpdate = (dto: UpdateEjemplarDto) => {
     }
   }
 
+  // Prestar fija la fecha una vez; cambiar el nombre no la toca.
+  if (dto.loan === null) {
+    $unset.loan = 1;
+  } else if (dto.loan && alreadyLent) {
+    $set["loan.borrowerName"] = dto.loan.borrowerName;
+  } else if (dto.loan) {
+    $set.loan = { borrowerName: dto.loan.borrowerName, lentAt: new Date() };
+  }
+
   for (const [key, value] of Object.entries(dto.overrides ?? {})) {
     assign(`overrides.${key}`, value);
   }
@@ -408,7 +421,12 @@ const updateEjemplar = async (
   }
 
   const dto = validateUpdateEjemplarDto(body);
-  const update = buildEjemplarUpdate(dto);
+  const alreadyLent = dto.loan
+    ? Boolean(
+        await Ejemplar.exists({ userId, bookId, loan: { $exists: true } }),
+      )
+    : false;
+  const update = buildEjemplarUpdate(dto, alreadyLent);
 
   const ejemplar =
     Object.keys(update).length > 0

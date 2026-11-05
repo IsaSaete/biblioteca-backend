@@ -72,6 +72,8 @@ export interface UpdateEjemplarDto {
   notes?: string | null;
   tags?: string[];
   favorite?: boolean;
+  // `{ borrowerName }` presta (o cambia el nombre); `null` lo marca devuelto.
+  loan?: { borrowerName: string } | null;
   overrides?: {
     [K in keyof BookEditableFields]?: BookEditableFields[K] | null;
   };
@@ -88,6 +90,7 @@ export interface EjemplarDto {
   acquisitionDate?: string;
   notes?: string;
   tags?: string[];
+  loan?: { borrowerName: string; lentAt: string };
   overrides?: Partial<BookEditableFields>;
   createdAt: string;
 }
@@ -120,6 +123,7 @@ export interface ListLibraryQuery {
   tag?: string;
   untagged: boolean;
   favorite: boolean;
+  lent: boolean;
   sort: LibrarySort;
   cursor?: string;
 }
