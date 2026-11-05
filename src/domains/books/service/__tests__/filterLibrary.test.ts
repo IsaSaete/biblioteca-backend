@@ -25,21 +25,27 @@ afterAll(async () => {
 
 const newUserId = (): string => new Types.ObjectId().toString();
 
+interface BookOptions {
+  favorite?: boolean;
+  tags?: string[];
+  borrower?: string;
+}
+
 const addBook = async (
   userId: string,
   title: string,
-  favorite = false,
-  tags: string[] = [],
+  { favorite = false, tags = [], borrower }: BookOptions = {},
 ): Promise<void> => {
   const { book } = await BooksService.createBook(
     userId,
     buildManualBookDto({ title }),
   );
 
-  if (favorite || tags.length > 0) {
+  if (favorite || tags.length > 0 || borrower) {
     await BooksService.updateEjemplar(userId, book.id, {
       ...(favorite && { favorite: true }),
       ...(tags.length > 0 && { tags }),
+      ...(borrower && { loan: { borrowerName: borrower } }),
     });
   }
 };
@@ -54,7 +60,7 @@ describe("Given the BooksService.listLibrary function with favorite", () => {
   describe("When the user filters by favorite=true", () => {
     it("Then it should return only their favorite books", async () => {
       const userId = newUserId();
-      await addBook(userId, "Favorito", true);
+      await addBook(userId, "Favorito", { favorite: true });
       await addBook(userId, "Normal");
 
       expect(await listTitles(userId, { favorite: "true" })).toEqual([
@@ -69,7 +75,7 @@ describe("Given the BooksService.listLibrary function with favorite", () => {
   ])("When the query has %s", (_case, query) => {
     it("Then it should not filter", async () => {
       const userId = newUserId();
-      await addBook(userId, "Favorito", true);
+      await addBook(userId, "Favorito", { favorite: true });
       await addBook(userId, "Normal");
 
       expect(await listTitles(userId, query)).toHaveLength(2);
@@ -89,7 +95,7 @@ describe("Given the BooksService.listLibrary function with favorite", () => {
 
   describe("When another user has favorite books", () => {
     it("Then they should not appear", async () => {
-      await addBook(newUserId(), "Ajeno", true);
+      await addBook(newUserId(), "Ajeno", { favorite: true });
 
       expect(await listTitles(newUserId(), { favorite: "true" })).toEqual([]);
     });
@@ -98,9 +104,9 @@ describe("Given the BooksService.listLibrary function with favorite", () => {
   describe("When favorite is combined with search", () => {
     it("Then both filters should apply", async () => {
       const userId = newUserId();
-      await addBook(userId, "Poesía completa", true);
+      await addBook(userId, "Poesía completa", { favorite: true });
       await addBook(userId, "Poesía menor");
-      await addBook(userId, "Novela", true);
+      await addBook(userId, "Novela", { favorite: true });
 
       expect(
         await listTitles(userId, { favorite: "true", search: "poesia" }),
@@ -112,7 +118,7 @@ describe("Given the BooksService.listLibrary function with favorite", () => {
     it("Then it should paginate only the favorites", async () => {
       const userId = newUserId();
       for (let index = 0; index < 25; index += 1) {
-        await addBook(userId, `Favorito ${index}`, true);
+        await addBook(userId, `Favorito ${index}`, { favorite: true });
       }
       await addBook(userId, "Normal");
 
@@ -143,8 +149,10 @@ describe("Given the BooksService.listLibrary function with tag", () => {
   describe("When the user filters by a tag", () => {
     it("Then it should return only the books with that tag, ignoring case", async () => {
       const userId = newUserId();
-      await addBook(userId, "Con etiqueta", false, ["Ciencia ficción", "Otra"]);
-      await addBook(userId, "Con otra", false, ["Historia"]);
+      await addBook(userId, "Con etiqueta", {
+        tags: ["Ciencia ficción", "Otra"],
+      });
+      await addBook(userId, "Con otra", { tags: ["Historia"] });
       await addBook(userId, "Sin etiquetas");
 
       expect(await listTitles(userId, { tag: "ciencia FICCIÓN" })).toEqual([
@@ -156,7 +164,7 @@ describe("Given the BooksService.listLibrary function with tag", () => {
   describe("When the tag is only a part of another tag", () => {
     it("Then it should not match, because the whole tag is compared", async () => {
       const userId = newUserId();
-      await addBook(userId, "Libro", false, ["Ciencia ficción"]);
+      await addBook(userId, "Libro", { tags: ["Ciencia ficción"] });
 
       expect(await listTitles(userId, { tag: "ciencia" })).toEqual([]);
     });
@@ -165,8 +173,8 @@ describe("Given the BooksService.listLibrary function with tag", () => {
   describe("When the tag has regex special characters", () => {
     it("Then it should be compared as plain text", async () => {
       const userId = newUserId();
-      await addBook(userId, "Programación", false, ["C++"]);
-      await addBook(userId, "Otro", false, ["Historia"]);
+      await addBook(userId, "Programación", { tags: ["C++"] });
+      await addBook(userId, "Otro", { tags: ["Historia"] });
 
       expect(await listTitles(userId, { tag: "C++" })).toEqual([
         "Programación",
@@ -178,7 +186,7 @@ describe("Given the BooksService.listLibrary function with tag", () => {
   describe("When the tag is empty or only spaces", () => {
     it("Then it should not filter", async () => {
       const userId = newUserId();
-      await addBook(userId, "Uno", false, ["A"]);
+      await addBook(userId, "Uno", { tags: ["A"] });
       await addBook(userId, "Dos");
 
       expect(await listTitles(userId, { tag: "   " })).toHaveLength(2);
@@ -187,7 +195,7 @@ describe("Given the BooksService.listLibrary function with tag", () => {
 
   describe("When another user has books with that tag", () => {
     it("Then they should not appear", async () => {
-      await addBook(newUserId(), "Ajeno", false, ["Historia"]);
+      await addBook(newUserId(), "Ajeno", { tags: ["Historia"] });
 
       expect(await listTitles(newUserId(), { tag: "Historia" })).toEqual([]);
     });
@@ -196,9 +204,15 @@ describe("Given the BooksService.listLibrary function with tag", () => {
   describe("When tag is combined with favorite and search", () => {
     it("Then all the filters should apply", async () => {
       const userId = newUserId();
-      await addBook(userId, "Poesía completa", true, ["Poesía"]);
-      await addBook(userId, "Poesía menor", false, ["Poesía"]);
-      await addBook(userId, "Poesía otra", true, ["Ensayo"]);
+      await addBook(userId, "Poesía completa", {
+        favorite: true,
+        tags: ["Poesía"],
+      });
+      await addBook(userId, "Poesía menor", { tags: ["Poesía"] });
+      await addBook(userId, "Poesía otra", {
+        favorite: true,
+        tags: ["Ensayo"],
+      });
 
       expect(
         await listTitles(userId, {
@@ -223,7 +237,7 @@ describe("Given the BooksService.listLibrary function with untagged", () => {
   describe("When the user filters by untagged=true", () => {
     it("Then it should return only the books without any tag", async () => {
       const userId = newUserId();
-      await addBook(userId, "Con etiqueta", false, ["Historia"]);
+      await addBook(userId, "Con etiqueta", { tags: ["Historia"] });
       await addBook(userId, "Sin etiquetas");
 
       expect(await listTitles(userId, { untagged: "true" })).toEqual([
@@ -253,7 +267,7 @@ describe("Given the BooksService.listLibrary function with untagged", () => {
   describe("When untagged is false", () => {
     it("Then it should not filter", async () => {
       const userId = newUserId();
-      await addBook(userId, "Con etiqueta", false, ["Historia"]);
+      await addBook(userId, "Con etiqueta", { tags: ["Historia"] });
       await addBook(userId, "Sin etiquetas");
 
       expect(await listTitles(userId, { untagged: "false" })).toHaveLength(2);
@@ -263,7 +277,7 @@ describe("Given the BooksService.listLibrary function with untagged", () => {
   describe("When every book has tags", () => {
     it("Then it should return an empty page without error", async () => {
       const userId = newUserId();
-      await addBook(userId, "Con etiqueta", false, ["Historia"]);
+      await addBook(userId, "Con etiqueta", { tags: ["Historia"] });
 
       expect(
         await BooksService.listLibrary(userId, { untagged: "true" }),
@@ -282,9 +296,12 @@ describe("Given the BooksService.listLibrary function with untagged", () => {
   describe("When untagged is combined with favorite", () => {
     it("Then both filters should apply", async () => {
       const userId = newUserId();
-      await addBook(userId, "Favorito sin etiquetas", true);
+      await addBook(userId, "Favorito sin etiquetas", { favorite: true });
       await addBook(userId, "Normal sin etiquetas");
-      await addBook(userId, "Favorito con etiqueta", true, ["Historia"]);
+      await addBook(userId, "Favorito con etiqueta", {
+        favorite: true,
+        tags: ["Historia"],
+      });
 
       expect(
         await listTitles(userId, { untagged: "true", favorite: "true" }),
@@ -334,9 +351,12 @@ describe("Given the BooksService.listLibrary function and the total", () => {
   describe("When filters and search are applied", () => {
     it("Then total should count only the books that match all of them", async () => {
       const userId = newUserId();
-      await addBook(userId, "Poesía completa", true, ["Poesía"]);
-      await addBook(userId, "Poesía menor", false, ["Poesía"]);
-      await addBook(userId, "Novela", true);
+      await addBook(userId, "Poesía completa", {
+        favorite: true,
+        tags: ["Poesía"],
+      });
+      await addBook(userId, "Poesía menor", { tags: ["Poesía"] });
+      await addBook(userId, "Novela", { favorite: true });
 
       const both = await BooksService.listLibrary(userId, {
         favorite: "true",
@@ -361,6 +381,61 @@ describe("Given the BooksService.listLibrary function and the total", () => {
       await addBook(newUserId(), "Ajeno");
 
       expect((await BooksService.listLibrary(newUserId(), {})).total).toBe(0);
+    });
+  });
+});
+
+describe("Given the BooksService.listLibrary function with lent", () => {
+  describe("When the user filters by lent=true", () => {
+    it("Then it should return only the books they have lent", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Prestado", { borrower: "María" });
+      await addBook(userId, "En casa");
+
+      expect(await listTitles(userId, { lent: "true" })).toEqual(["Prestado"]);
+    });
+
+    it("Then it should combine with favorite and not count returned books", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Prestado favorito", {
+        favorite: true,
+        borrower: "María",
+      });
+      await addBook(userId, "Prestado normal", { borrower: "Marta" });
+      const { book } = await BooksService.createBook(
+        userId,
+        buildManualBookDto({ title: "Devuelto" }),
+      );
+      await BooksService.updateEjemplar(userId, book.id, {
+        loan: { borrowerName: "Luis" },
+      });
+      await BooksService.updateEjemplar(userId, book.id, { loan: null });
+
+      expect(
+        await listTitles(userId, { lent: "true", favorite: "true" }),
+      ).toEqual(["Prestado favorito"]);
+      expect(await listTitles(userId, { lent: "true" })).toHaveLength(2);
+    });
+  });
+
+  describe.each([
+    ["lent=false", { lent: "false" }],
+    ["no lent parameter", {}],
+  ])("When the query has %s", (_case, query) => {
+    it("Then it should not filter", async () => {
+      const userId = newUserId();
+      await addBook(userId, "Prestado", { borrower: "María" });
+      await addBook(userId, "En casa");
+
+      expect(await listTitles(userId, query)).toHaveLength(2);
+    });
+  });
+
+  describe("When lent is not true or false", () => {
+    it("Then it should throw VALIDATION_ERROR on lent", async () => {
+      await expect(
+        BooksService.listLibrary(newUserId(), { lent: "sí" }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR", field: "lent" });
     });
   });
 });

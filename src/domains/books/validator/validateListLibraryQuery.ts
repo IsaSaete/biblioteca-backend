@@ -36,6 +36,11 @@ const listLibraryQuerySchema = z
       .enum(["true", "false"], "El filtro de favoritos no es válido")
       .default("false")
       .transform((value) => value === "true"),
+    // Solo `true` filtra; `false` o ausente equivale a no filtrar.
+    lent: z
+      .enum(["true", "false"], "El filtro de prestados no es válido")
+      .default("false")
+      .transform((value) => value === "true"),
     sort: z
       .enum(
         ["recent", "oldest", "alpha", "alpha_desc"],

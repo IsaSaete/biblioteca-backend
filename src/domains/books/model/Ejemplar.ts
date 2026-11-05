@@ -15,6 +15,15 @@ const overridesSchema = new Schema(
   { _id: false },
 );
 
+// Si existe, el libro está prestado: no hay un booleano aparte.
+const loanSchema = new Schema(
+  {
+    borrowerName: { type: String, required: true },
+    lentAt: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const ejemplarSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -32,6 +41,7 @@ const ejemplarSchema = new Schema(
     acquisitionDate: { type: Date },
     notes: { type: String },
     tags: { type: [String], default: undefined },
+    loan: { type: loanSchema },
     overrides: { type: overridesSchema },
   },
   { timestamps: true },

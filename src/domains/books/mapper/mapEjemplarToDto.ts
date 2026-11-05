@@ -37,6 +37,12 @@ const mapEjemplarToDto = (ejemplar: EjemplarRecord): EjemplarDto => {
     ...(ejemplar.notes && { notes: ejemplar.notes }),
     ...(ejemplar.tags &&
       ejemplar.tags.length > 0 && { tags: [...ejemplar.tags] }),
+    ...(ejemplar.loan?.borrowerName && {
+      loan: {
+        borrowerName: ejemplar.loan.borrowerName,
+        lentAt: ejemplar.loan.lentAt.toISOString(),
+      },
+    }),
     ...(overrides && { overrides }),
     createdAt: ejemplar.createdAt.toISOString(),
   };

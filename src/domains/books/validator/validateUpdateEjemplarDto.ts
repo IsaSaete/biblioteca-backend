@@ -20,6 +20,19 @@ const clearableText = z
 const clearable = <T extends z.ZodType>(schema: T) =>
   schema.nullable().optional();
 
+export const MAX_BORROWER_NAME_LENGTH = 80;
+
+const loanSchema = z.object({
+  borrowerName: z
+    .string("El nombre no es válido")
+    .trim()
+    .min(1, "Indica a quién se lo has prestado")
+    .max(
+      MAX_BORROWER_NAME_LENGTH,
+      `El nombre no puede tener más de ${MAX_BORROWER_NAME_LENGTH} caracteres`,
+    ),
+});
+
 const updateEjemplarSchema = z.object({
   status: z.enum(READING_STATUSES).optional(),
   location: clearableText,
@@ -31,6 +44,7 @@ const updateEjemplarSchema = z.object({
   notes: clearableText,
   tags: z.array(requiredText("La etiqueta no puede estar vacía")).optional(),
   favorite: z.boolean("El favorito no es válido").optional(),
+  loan: loanSchema.nullable().optional(),
   overrides: z
     .object({
       title: clearable(bookFieldSchemas.title),
