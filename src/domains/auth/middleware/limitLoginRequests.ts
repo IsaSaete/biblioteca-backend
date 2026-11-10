@@ -2,6 +2,7 @@ import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import type { Options } from "express-rate-limit";
 import config from "../../../config/index.js";
 import TooManyRequestsError from "../../../shared/errors/TooManyRequestsError.js";
+import getEmailRateLimitKey from "./getEmailRateLimitKey.js";
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILED_ATTEMPTS = 5;
@@ -16,13 +17,8 @@ export const createLoginRateLimiter = (options: Partial<Options> = {}) =>
     skipSuccessfulRequests: true,
     standardHeaders: "draft-7",
     legacyHeaders: false,
-    keyGenerator: (req) => {
-      const email: unknown = req.body?.email;
-      const normalizedEmail =
-        typeof email === "string" ? email.trim().toLowerCase() : "";
-
-      return `${ipKeyGenerator(req.ip ?? "")}|${normalizedEmail}`;
-    },
+    keyGenerator: (req) =>
+      `${ipKeyGenerator(req.ip ?? "")}|${getEmailRateLimitKey(req)}`,
     handler: (_req, _res, next) => {
       next(
         new TooManyRequestsError(

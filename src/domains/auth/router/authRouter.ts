@@ -6,7 +6,9 @@ import limitWrongPasswordAttempts from "../middleware/limitWrongPasswordAttempts
 import parseAvatarBody from "../middleware/parseAvatarBody.js";
 import limitEmailChangeRequests from "../middleware/limitEmailChangeRequests.js";
 import limitExportRequests from "../middleware/limitExportRequests.js";
+import limitForgotPasswordPerAccount from "../middleware/limitForgotPasswordPerAccount.js";
 import limitForgotPasswordRequests from "../middleware/limitForgotPasswordRequests.js";
+import limitLoginAttemptsPerAccount from "../middleware/limitLoginAttemptsPerAccount.js";
 import limitLoginRequests from "../middleware/limitLoginRequests.js";
 import limitRegisterRequests from "../middleware/limitRegisterRequests.js";
 
@@ -15,7 +17,12 @@ const authRouter = Router();
 authRouter.post("/register", limitRegisterRequests, AuthController.register);
 authRouter.get("/verify-email", AuthController.verifyEmail);
 authRouter.get("/confirm-email-change", AuthController.confirmEmailChange);
-authRouter.post("/login", limitLoginRequests, AuthController.login);
+authRouter.post(
+  "/login",
+  limitLoginRequests,
+  limitLoginAttemptsPerAccount,
+  AuthController.login,
+);
 authRouter.get("/me", authMiddleware, AuthController.me);
 authRouter.patch(
   "/me",
@@ -82,6 +89,7 @@ authRouter.post("/logout", handleCsrf, AuthController.logout);
 authRouter.post(
   "/forgot-password",
   limitForgotPasswordRequests,
+  limitForgotPasswordPerAccount,
   AuthController.forgotPassword,
 );
 authRouter.post("/reset-password", AuthController.resetPassword);
