@@ -4,12 +4,6 @@ import logger from "../../utils/logger.js";
 
 const resend = new Resend(config.resendApiKey);
 
-// Remitente del sandbox de Resend: mientras no se verifique un dominio
-// propio, es el único remitente disponible y solo puede enviar a la
-// dirección de email de la cuenta de Resend. Cuando se verifique un
-// dominio, se cambia por el remitente definitivo en esta misma línea.
-const FROM_ADDRESS = "Biblioteca Personal <onboarding@resend.dev>";
-
 const sendVerificationEmail = async (
   to: string,
   verificationToken: string,
@@ -21,7 +15,8 @@ const sendVerificationEmail = async (
   }
 
   const { error } = await resend.emails.send({
-    from: FROM_ADDRESS,
+    from: config.emailFrom,
+    replyTo: config.emailReplyTo,
     to,
     subject: "Confirma tu email — Glosa",
     html: `

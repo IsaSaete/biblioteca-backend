@@ -4,10 +4,6 @@ import logger from "../../utils/logger.js";
 
 const resend = new Resend(config.resendApiKey);
 
-// Mismo remitente de sandbox que sendVerificationEmail: cambiar todos a la vez
-// cuando se verifique un dominio propio.
-const FROM_ADDRESS = "Biblioteca Personal <onboarding@resend.dev>";
-
 // Va al email ACTUAL: si el cambio no lo pidió su dueña, es la única señal de
 // que alguien más tiene su sesión.
 const sendEmailChangeNoticeEmail = async (
@@ -15,7 +11,8 @@ const sendEmailChangeNoticeEmail = async (
   newEmail: string,
 ): Promise<void> => {
   const { error } = await resend.emails.send({
-    from: FROM_ADDRESS,
+    from: config.emailFrom,
+    replyTo: config.emailReplyTo,
     to,
     subject: "Se ha pedido cambiar el email de tu cuenta — Glosa",
     html: `

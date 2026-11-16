@@ -29,6 +29,10 @@ const envSchema = z.object({
     .string()
     .min(32, "REFRESH_TOKEN_SECRET debe tener al menos 32 caracteres"),
   RESEND: z.string().min(1, "RESEND es obligatoria"),
+  // Quién firma los correos y a dónde llegan las respuestas. El dominio del
+  // remitente debe estar verificado en Resend.
+  EMAIL_FROM: z.string().min(1).default("Glosa <no-reply@glosaapp.com>"),
+  EMAIL_REPLY_TO: z.email().default("contacto@glosaapp.com"),
   GOOGLE_BOOKS_API_KEY: z
     .string()
     .min(1, "GOOGLE_BOOKS_API_KEY es obligatoria"),
@@ -74,6 +78,8 @@ const config = {
   accessTokenSecret: env.ACCESS_TOKEN_SECRET,
   refreshTokenSecret: env.REFRESH_TOKEN_SECRET,
   resendApiKey: env.RESEND,
+  emailFrom: env.EMAIL_FROM,
+  emailReplyTo: env.EMAIL_REPLY_TO,
   googleBooksApiKey: env.GOOGLE_BOOKS_API_KEY,
   cookiePolicy: buildCookiePolicy({
     sameSite: env.COOKIE_SAME_SITE,
