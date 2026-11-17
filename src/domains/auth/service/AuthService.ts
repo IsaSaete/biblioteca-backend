@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import ConflictError from "../../../shared/errors/ConflictError.js";
 import NotFoundError from "../../../shared/errors/NotFoundError.js";
 import ValidationError from "../../../shared/errors/ValidationError.js";
 import UnauthorizedError from "../../../shared/errors/UnauthorizedError.js";
@@ -418,6 +419,33 @@ const changePassword = async (
 
 // No cambia el email: guarda el nuevo como pendiente y lo confirma el enlace
 // enviado a esa dirección. Un intento nuevo sustituye al pendiente (y su token).
+// Reenvía el enlace de verificación a quien no lo recibió (o lo perdió). El
+// enlace anterior deja de valer: solo hay uno vigente a la vez.
+const resendVerificationEmail = async (userId: string): Promise<void> => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw unauthenticatedError();
+  }
+
+  if (user.emailVerified) {
+    throw new ConflictError(
+      "AUTH_EMAIL_ALREADY_VERIFIED",
+      "Tu email ya está verificado",
+    );
+  }
+
+  const verificationToken = createRawToken();
+
+  user.emailVerificationTokenHash = hashToken(verificationToken);
+  user.emailVerificationTokenExpiresAt = new Date(
+    Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS,
+  );
+  await user.save();
+
+  await sendVerificationEmail(user.email, verificationToken);
+};
+
 const requestEmailChange = async (
   userId: string,
   body: unknown,
@@ -589,6 +617,7 @@ const AuthService = {
   requestPasswordReset,
   resetPassword,
   changePassword,
+  resendVerificationEmail,
   requestEmailChange,
   confirmEmailChange,
   exportData,
