@@ -4,10 +4,6 @@ import logger from "../../utils/logger.js";
 
 const resend = new Resend(config.resendApiKey);
 
-// Mismo remitente de sandbox que sendVerificationEmail: cambiar todos a la vez
-// cuando se verifique un dominio propio.
-const FROM_ADDRESS = "Biblioteca Personal <onboarding@resend.dev>";
-
 // Va al email NUEVO: abrir el enlace prueba que quien lo pidió controla el buzón.
 const sendEmailChangeConfirmationEmail = async (
   to: string,
@@ -20,7 +16,8 @@ const sendEmailChangeConfirmationEmail = async (
   }
 
   const { error } = await resend.emails.send({
-    from: FROM_ADDRESS,
+    from: config.emailFrom,
+    replyTo: config.emailReplyTo,
     to,
     subject: "Confirma tu nuevo email — Glosa",
     html: `

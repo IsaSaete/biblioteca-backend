@@ -4,10 +4,6 @@ import logger from "../../utils/logger.js";
 
 const resend = new Resend(config.resendApiKey);
 
-// Mismo remitente de sandbox que sendVerificationEmail: cambiar ambos cuando
-// se verifique un dominio propio.
-const FROM_ADDRESS = "Biblioteca Personal <onboarding@resend.dev>";
-
 const sendPasswordResetEmail = async (
   to: string,
   resetToken: string,
@@ -19,7 +15,8 @@ const sendPasswordResetEmail = async (
   }
 
   const { error } = await resend.emails.send({
-    from: FROM_ADDRESS,
+    from: config.emailFrom,
+    replyTo: config.emailReplyTo,
     to,
     subject: "Recupera tu contraseña — Glosa",
     html: `
