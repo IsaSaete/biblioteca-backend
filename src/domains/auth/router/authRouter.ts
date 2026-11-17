@@ -11,6 +11,7 @@ import limitForgotPasswordRequests from "../middleware/limitForgotPasswordReques
 import limitLoginAttemptsPerAccount from "../middleware/limitLoginAttemptsPerAccount.js";
 import limitLoginRequests from "../middleware/limitLoginRequests.js";
 import limitRegisterRequests from "../middleware/limitRegisterRequests.js";
+import limitVerificationEmailRequests from "../middleware/limitVerificationEmailRequests.js";
 
 const authRouter = Router();
 
@@ -65,6 +66,13 @@ authRouter.post(
   limitEmailChangeRequests,
   limitWrongPasswordAttempts,
   AuthController.requestEmailChange,
+);
+authRouter.post(
+  "/me/verification-email",
+  authMiddleware,
+  handleCsrf,
+  limitVerificationEmailRequests,
+  AuthController.resendVerificationEmail,
 );
 authRouter.get(
   "/me/export",
