@@ -443,7 +443,12 @@ const resendVerificationEmail = async (userId: string): Promise<void> => {
   );
   await user.save();
 
-  await sendVerificationEmail(user.email, verificationToken, user.name);
+  await sendVerificationEmail(
+    user.email,
+    verificationToken,
+    user.name,
+    "reminder",
+  );
 };
 
 const requestEmailChange = async (

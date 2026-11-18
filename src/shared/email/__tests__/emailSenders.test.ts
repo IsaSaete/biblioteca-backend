@@ -84,6 +84,26 @@ describe("Given the sender configured for the emails of the app", () => {
       expect(payload.html).toContain("/verify-email?token=abc123");
     });
 
+    it("Then the reminder sent from the profile does not welcome anyone and only asks to confirm the address", async () => {
+      await sendVerificationEmail(
+        "reader@example.com",
+        "abc123",
+        "Isa",
+        "reminder",
+      );
+
+      const payload = sendMock.mock.calls[0]?.[0] as {
+        subject: string;
+        html: string;
+        text: string;
+      };
+      expect(payload.subject).toBe("Confirma tu correo de Glosa");
+      expect(payload.html).not.toContain("bienvenida");
+      expect(payload.text).not.toContain("cuenta ya está lista");
+      expect(payload.text).toContain("/verify-email?token=abc123");
+      expect(payload.html).toContain("/verify-email?token=abc123");
+    });
+
     it("Then a name with HTML is escaped and a name with line breaks stays on one line in the subject", async () => {
       await sendVerificationEmail(
         "reader@example.com",
