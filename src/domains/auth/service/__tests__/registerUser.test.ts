@@ -8,7 +8,7 @@ import {
 import { buildRegisterDto } from "../../fixtures/auth.fixtures.js";
 
 const sendVerificationEmailMock = jest
-  .fn<(to: string, token: string) => Promise<void>>()
+  .fn<(to: string, token: string, name: string) => Promise<void>>()
   .mockResolvedValue(undefined);
 
 jest.unstable_mockModule(
@@ -67,7 +67,7 @@ describe("Given the AuthService.registerUser function", () => {
       expect(storedUser?.acceptedTermsAt).toBeInstanceOf(Date);
     });
 
-    it("Then it should send the verification email with a token", async () => {
+    it("Then it should send the verification email with a token and the name of the user, to welcome them", async () => {
       const dto = buildRegisterDto();
 
       await AuthService.registerUser(dto);
@@ -75,6 +75,7 @@ describe("Given the AuthService.registerUser function", () => {
       expect(sendVerificationEmailMock).toHaveBeenCalledWith(
         dto.email,
         expect.any(String),
+        dto.name,
       );
     });
   });
