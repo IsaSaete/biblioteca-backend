@@ -122,7 +122,7 @@ const registerUser = async (body: unknown): Promise<RegisterUserResult> => {
     emailVerificationTokenExpiresAt,
   });
 
-  await sendVerificationEmail(user.email, verificationToken);
+  await sendVerificationEmail(user.email, verificationToken, user.name);
 
   const session = await startSession(user.id);
 
@@ -443,7 +443,7 @@ const resendVerificationEmail = async (userId: string): Promise<void> => {
   );
   await user.save();
 
-  await sendVerificationEmail(user.email, verificationToken);
+  await sendVerificationEmail(user.email, verificationToken, user.name);
 };
 
 const requestEmailChange = async (

@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import config from "../../config/index.js";
 import logger from "../../utils/logger.js";
+import { renderEmail } from "./renderEmail.js";
 
 const resend = new Resend(config.resendApiKey);
 
@@ -15,17 +16,29 @@ const sendEmailChangeConfirmationEmail = async (
     logger.debug({ confirmationUrl }, "Email change confirmation link");
   }
 
+  const { html, text } = renderEmail({
+    preheader: "Confirma que esta dirección será el email de tu cuenta.",
+    heading: "Confirma tu nuevo email",
+    paragraphs: [
+      "Has pedido usar esta dirección como email de tu cuenta de Glosa.",
+      "Confírmalo desde el siguiente botón.",
+    ],
+    action: { label: "Confirmar este email", url: confirmationUrl },
+    notes: [
+      "El enlace caduca en 24 horas.",
+      "Si no has sido tú, puedes ignorar este correo.",
+    ],
+    reason:
+      "Te escribimos porque se ha pedido usar esta dirección en una cuenta de Glosa.",
+  });
+
   const { error } = await resend.emails.send({
     from: config.emailFrom,
     replyTo: config.emailReplyTo,
     to,
     subject: "Confirma tu nuevo email — Glosa",
-    html: `
-      <p>Has pedido usar esta dirección como email de tu cuenta de Glosa.</p>
-      <p>Confírmalo desde el siguiente enlace (caduca en 24 horas):</p>
-      <p><a href="${confirmationUrl}">${confirmationUrl}</a></p>
-      <p>Si no has sido tú, puedes ignorar este correo.</p>
-    `,
+    html,
+    text,
   });
 
   if (error) {

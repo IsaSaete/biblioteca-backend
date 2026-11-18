@@ -47,8 +47,10 @@ describe("Given the AuthService.resendVerificationEmail function", () => {
       await AuthService.resendVerificationEmail(user.id);
 
       expect(sendVerificationEmailMock).toHaveBeenCalledTimes(1);
-      const [to, newToken] = sendVerificationEmailMock.mock.calls[0] ?? [];
+      const [to, newToken, name] =
+        sendVerificationEmailMock.mock.calls[0] ?? [];
       expect(to).toBe(user.email);
+      expect(name).toBe(user.name);
       expect(newToken).not.toBe(firstToken);
 
       const stored = await User.findById(user.id);
