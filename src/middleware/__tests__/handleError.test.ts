@@ -84,4 +84,58 @@ describe("Given the handleError middleware", () => {
       });
     });
   });
+
+  describe("When express.json rejects a body that is not valid JSON", () => {
+    const error = Object.assign(new SyntaxError("Unexpected end of JSON"), {
+      type: "entity.parse.failed",
+      status: 400,
+    });
+
+    it("Then it should respond 400 with a VALIDATION_ERROR and not log it as an unhandled error", () => {
+      handleError(error, req, res, next);
+
+      expect(status).toHaveBeenCalledWith(400);
+      expect(json).toHaveBeenCalledWith({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "El cuerpo de la petición no es un JSON válido",
+        },
+      });
+    });
+  });
+
+  describe("When express.json rejects a body that is too large", () => {
+    const error = Object.assign(new Error("request entity too large"), {
+      type: "entity.too.large",
+      status: 413,
+    });
+
+    it("Then it should respond 413 with a VALIDATION_ERROR", () => {
+      handleError(error, req, res, next);
+
+      expect(status).toHaveBeenCalledWith(413);
+      expect(json).toHaveBeenCalledWith({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "El cuerpo de la petición es demasiado grande",
+        },
+      });
+    });
+  });
+
+  describe("When an error has a type that is not from the body parser", () => {
+    it("Then it is still an unexpected error: 500 and no detail", () => {
+      const error = Object.assign(new Error("boom"), { type: "other.thing" });
+
+      handleError(error, req, res, next);
+
+      expect(status).toHaveBeenCalledWith(500);
+      expect(json).toHaveBeenCalledWith({
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Ha ocurrido un error inesperado",
+        },
+      });
+    });
+  });
 });
