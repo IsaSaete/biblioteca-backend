@@ -4,6 +4,33 @@ import { COVER_SOURCES, READING_STATUSES } from "../types/types.js";
 import type { CreateBookDto } from "../types/types.js";
 import toIsbn13 from "../utils/toIsbn13.js";
 import { bookFieldSchemas, optionalText } from "./bookFieldSchemas.js";
+import { FIELD_LIMITS, messages } from "./fieldLimits.js";
+
+const COVER_HOSTS = {
+  google_books: ["books.google.com"],
+  open_library: ["covers.openlibrary.org"],
+} as const satisfies Record<(typeof COVER_SOURCES)[number], readonly string[]>;
+
+const isCoverFromSource = (
+  coverUrl: string,
+  source: (typeof COVER_SOURCES)[number],
+): boolean => {
+  const hosts: readonly string[] = COVER_HOSTS[source];
+
+  try {
+    return hosts.includes(new URL(coverUrl).hostname);
+  } catch {
+    return false;
+  }
+};
+
+// La CSP del frontend solo admite imágenes por https.
+const toHttps = (coverUrl: string): string => {
+  const url = new URL(coverUrl);
+  url.protocol = "https:";
+
+  return url.toString();
+};
 
 const createBookSchema = z
   .object({
@@ -32,15 +59,16 @@ const createBookSchema = z
     publisher: bookFieldSchemas.publisher,
     publishedYear: bookFieldSchemas.publishedYear.optional(),
     pageCount: bookFieldSchemas.pageCount.optional(),
-    language: optionalText,
+    language: optionalText(FIELD_LIMITS.language, messages.language),
     coverUrl: z
       .url({
         protocol: /^https?$/,
-        error: "La URL de la portada no es válida",
+        error: messages.coverUrl,
       })
+      .max(FIELD_LIMITS.coverUrl, messages.coverUrl)
       .optional(),
     coverSource: z.enum(COVER_SOURCES).optional(),
-    synopsis: optionalText,
+    synopsis: optionalText(FIELD_LIMITS.synopsis, messages.synopsis),
     categories: bookFieldSchemas.categories.optional(),
     status: z.enum(READING_STATUSES).default("pending"),
   })
@@ -51,7 +79,20 @@ const createBookSchema = z
   .refine((dto) => !dto.coverSource || dto.coverUrl, {
     path: ["coverUrl"],
     message: "La portada necesita una URL",
-  });
+  })
+  // El Libro es compartido: la portada que fija la primera persona que añade un
+  // ISBN la ven todas. Solo se admite la que viene del proveedor declarado.
+  .refine(
+    (dto) =>
+      !dto.coverUrl ||
+      !dto.coverSource ||
+      isCoverFromSource(dto.coverUrl, dto.coverSource),
+    { path: ["coverUrl"], message: messages.coverUrl },
+  )
+  .transform((dto) => ({
+    ...dto,
+    ...(dto.coverUrl && { coverUrl: toHttps(dto.coverUrl) }),
+  }));
 
 const validateCreateBookDto = (body: unknown): CreateBookDto => {
   const result = createBookSchema.safeParse(body);

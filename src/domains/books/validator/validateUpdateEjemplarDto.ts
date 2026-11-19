@@ -8,14 +8,17 @@ import {
 } from "../types/types.js";
 import type { UpdateEjemplarDto } from "../types/types.js";
 import { bookFieldSchemas, requiredText } from "./bookFieldSchemas.js";
+import { FIELD_LIMITS, messages } from "./fieldLimits.js";
 
 // Texto libre que se puede borrar: `null` o cadena vacía dejan el campo vacío.
-const clearableText = z
-  .string()
-  .trim()
-  .nullable()
-  .optional()
-  .transform((value) => (value === "" ? null : value));
+const clearableText = (maxLength: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .max(maxLength, message)
+    .nullable()
+    .optional()
+    .transform((value) => (value === "" ? null : value));
 
 const clearable = <T extends z.ZodType>(schema: T) =>
   schema.nullable().optional();
@@ -35,14 +38,21 @@ const loanSchema = z.object({
 
 const updateEjemplarSchema = z.object({
   status: z.enum(READING_STATUSES).optional(),
-  location: clearableText,
+  location: clearableText(FIELD_LIMITS.location, messages.location),
   format: clearable(z.enum(FORMATS)),
   provenance: clearable(z.enum(PROVENANCES)),
   acquisitionDate: clearable(
     z.iso.date("La fecha de adquisición no es válida"),
   ),
-  notes: clearableText,
-  tags: z.array(requiredText("La etiqueta no puede estar vacía")).optional(),
+  notes: clearableText(FIELD_LIMITS.notes, messages.notes),
+  tags: z
+    .array(
+      requiredText("La etiqueta no puede estar vacía").max(
+        FIELD_LIMITS.tag,
+        messages.tag,
+      ),
+    )
+    .optional(),
   favorite: z.boolean("El favorito no es válido").optional(),
   loan: loanSchema.nullable().optional(),
   overrides: z
@@ -52,8 +62,8 @@ const updateEjemplarSchema = z.object({
       publisher: clearable(bookFieldSchemas.publisher),
       publishedYear: clearable(bookFieldSchemas.publishedYear),
       pageCount: clearable(bookFieldSchemas.pageCount),
-      language: clearableText,
-      synopsis: clearableText,
+      language: clearableText(FIELD_LIMITS.language, messages.language),
+      synopsis: clearableText(FIELD_LIMITS.synopsis, messages.synopsis),
       categories: clearable(bookFieldSchemas.categories),
     })
     .optional(),
