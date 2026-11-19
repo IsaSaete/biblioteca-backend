@@ -431,7 +431,7 @@ const updateEjemplar = async (
   const ejemplar =
     Object.keys(update).length > 0
       ? await Ejemplar.findOneAndUpdate({ userId, bookId }, update, {
-          new: true,
+          returnDocument: "after",
           runValidators: true,
         }).lean()
       : await Ejemplar.findOne({ userId, bookId }).lean();
