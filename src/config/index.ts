@@ -4,9 +4,10 @@ import { parseAllowedOrigins } from "./parseAllowedOrigins.js";
 
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
+  // Si falta, se asume producción: un despliegue sin la variable no debe acabar
+  // con el registro de depuración, que escribe en los logs los enlaces con token
+  // de verificación y recuperación. En local se pide `development` expresamente.
+  NODE_ENV: z.enum(["development", "test", "production"]).default("production"),
   MONGODB_URI: z.string().min(1, "MONGODB_URI es obligatoria"),
   FRONTEND_URL: z.url("FRONTEND_URL debe ser una URL válida"),
   EXTRA_ALLOWED_ORIGINS: z.string().optional(),
@@ -38,20 +39,23 @@ const envSchema = z.object({
     .min(1, "GOOGLE_BOOKS_API_KEY es obligatoria"),
 });
 
-const parsedEnv = envSchema
-  .superRefine((env, context) => {
-    try {
-      parseAllowedOrigins(env.FRONTEND_URL, env.EXTRA_ALLOWED_ORIGINS);
-    } catch {
-      context.addIssue({
-        code: "custom",
-        path: ["EXTRA_ALLOWED_ORIGINS"],
-        message:
-          "EXTRA_ALLOWED_ORIGINS debe ser una lista de URLs http(s) exactas separadas por comas, sin comodines",
-      });
-    }
-  })
-  .safeParse(process.env);
+export const parseEnv = (source: NodeJS.ProcessEnv) =>
+  envSchema
+    .superRefine((env, context) => {
+      try {
+        parseAllowedOrigins(env.FRONTEND_URL, env.EXTRA_ALLOWED_ORIGINS);
+      } catch {
+        context.addIssue({
+          code: "custom",
+          path: ["EXTRA_ALLOWED_ORIGINS"],
+          message:
+            "EXTRA_ALLOWED_ORIGINS debe ser una lista de URLs http(s) exactas separadas por comas, sin comodines",
+        });
+      }
+    })
+    .safeParse(source);
+
+const parsedEnv = parseEnv(process.env);
 
 if (!parsedEnv.success) {
   const issues = parsedEnv.error.issues
