@@ -25,7 +25,6 @@ bookSchema.index(
   { isbn: 1 },
   { unique: true, partialFilterExpression: { isbn: { $type: "string" } } },
 );
-bookSchema.index({ title: "text", authors: "text" });
 
 export type BookDocument = InferSchemaType<typeof bookSchema>;
 

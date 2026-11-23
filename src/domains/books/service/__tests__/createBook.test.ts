@@ -112,6 +112,34 @@ describe("Given the BooksService.createBook function", () => {
     });
   });
 
+  describe("When the second user changes the language of the existing Book", () => {
+    it("Then the new language should go to the Ejemplar overrides", async () => {
+      await BooksService.createBook(newUserId(), buildCreateBookDto());
+
+      const { book, ejemplar } = await BooksService.createBook(
+        newUserId(),
+        buildCreateBookDto({ language: "esp" }),
+      );
+
+      expect(ejemplar.overrides).toEqual({ language: "esp" });
+      expect(book.language).toBe("es");
+    });
+  });
+
+  describe("When a user adds a new book whose language is not a MongoDB text-index language", () => {
+    it.each(["esp", "ca", "Español"])(
+      "Then it should create the Book with language %s",
+      async (language) => {
+        const { book } = await BooksService.createBook(
+          newUserId(),
+          buildCreateBookDto({ language }),
+        );
+
+        expect(book.language).toBe(language);
+      },
+    );
+  });
+
   describe("When the user already has that Book in their library", () => {
     it("Then it should fail with BOOK_ALREADY_IN_LIBRARY", async () => {
       const userId = newUserId();
