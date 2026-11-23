@@ -7,6 +7,7 @@ import {
   validateSearchQuery,
 } from "../validator/validateExternalBookQueries.js";
 import type { ExternalBookDto } from "../types/types.js";
+import selectGenre from "../utils/selectGenre.js";
 
 export const EXTERNAL_SEARCH_LIMIT = 10;
 
@@ -78,6 +79,25 @@ const completeFromOtherProviders = async (
   return completed;
 };
 
+// Las categorías de los proveedores (en varios idiomas y con mucho ruido) se
+// reducen a un único género del catálogo. Si ninguna es un género, no hay
+// categorías; lo descartado se registra para ampliar el diccionario.
+const withNormalizedGenre = (book: ExternalBookDto): ExternalBookDto => {
+  const { categories, ...rest } = book;
+
+  if (!categories?.length) {
+    return book;
+  }
+
+  const { genre, unmapped } = selectGenre(categories);
+
+  if (unmapped.length > 0) {
+    logger.info({ unmapped }, "Book categories not recognised as a genre");
+  }
+
+  return { ...rest, ...(genre && { categories: [genre] }) };
+};
+
 export interface ExternalBooksService {
   lookupByIsbn(query: unknown): Promise<ExternalBookDto>;
   searchExternal(query: unknown): Promise<ExternalBookDto[]>;
@@ -134,7 +154,7 @@ const createExternalBooksService = (
           isbn,
         );
 
-        return { ...completed, isbn };
+        return { ...withNormalizedGenre(completed), isbn };
       }
 
       if (anyFailed) {
@@ -160,7 +180,7 @@ const createExternalBooksService = (
         throw providerUnavailable();
       }
 
-      return result.slice(0, EXTERNAL_SEARCH_LIMIT);
+      return result.slice(0, EXTERNAL_SEARCH_LIMIT).map(withNormalizedGenre);
     },
   };
 };
