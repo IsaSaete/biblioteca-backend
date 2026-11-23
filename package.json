@@ -18,7 +18,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
