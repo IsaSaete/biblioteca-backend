@@ -125,6 +125,19 @@ describe("Given the BooksService.updateEjemplar function", () => {
     });
   });
 
+  describe("When the user removes every genre of the book", () => {
+    it("Then an empty list is kept as the override, so the book shows no genre", async () => {
+      const userId = newUserId();
+      const bookId = await addBook(userId);
+
+      const ejemplar = await BooksService.updateEjemplar(userId, bookId, {
+        overrides: { categories: [] },
+      });
+
+      expect(ejemplar.overrides).toEqual({ categories: [] });
+    });
+  });
+
   describe("When overrides are sent twice with different fields", () => {
     it("Then it should merge them, remove the null ones and leave the Book untouched", async () => {
       const userId = newUserId();
