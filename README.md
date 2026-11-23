@@ -123,6 +123,10 @@ En producción la web y la API comparten origen: Netlify reenvía `/api/*` al ba
 
 Se trabaja con **Trunk Based Development**: ramas cortas `feature/`, `bugfix/` o `refactor/` desde `main` actualizado, una PR por rama y commits pequeños, atómicos, en inglés e imperativos (máximo 72 caracteres). Cada endpoint lleva su test de integración.
 
+## Licencia
+
+© 2026 Isabel Sáenz. **Todos los derechos reservados.** El código se publica únicamente para que pueda consultarse como parte de un portfolio: no se concede permiso para usarlo, copiarlo, modificarlo ni distribuirlo, en todo o en parte, sin autorización expresa y por escrito de su autora.
+
 ---
 
-Proyecto de portfolio desarrollado por [@IsaSaete](https://github.com/IsaSaete).
+Proyecto de portfolio de Isabel Sáenz ([@IsaSaete](https://github.com/IsaSaete)).
