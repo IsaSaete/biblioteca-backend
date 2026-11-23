@@ -4,7 +4,7 @@
 
 API REST de **Glosa**, una biblioteca personal digital: cataloga los libros físicos que tienes y guarda tus citas favoritas de cada uno.
 
-🌐 **[glosaapp.com](https://glosaapp.com)** · La web está en [biblioteca-frontend](https://github.com/IsaSaete/biblioteca-frontend) y la documentación en [biblioteca-docs](https://github.com/IsaSaete/biblioteca-docs).
+🌐 **[glosaapp.com](https://glosaapp.com)** · La web está en [biblioteca-frontend](https://github.com/IsaSaete/biblioteca-frontend).
 
 ## Qué hace
 
@@ -90,7 +90,18 @@ Cada dominio sigue las mismas capas: la ruta recibe, el controlador delega, el s
 
 ## API
 
-Cinco grupos de recursos (`auth`, `books`, `wishlist`, `quotes`, `stats`) más un endpoint de salud. El **contrato completo** (rutas, cuerpos, respuestas y códigos de error) está en [`api-contract.md`](https://github.com/IsaSaete/biblioteca-docs/blob/main/api-contract.md) y es la fuente de verdad compartida con el frontend.
+Cinco grupos de recursos y un endpoint de salud:
+
+| Grupo      | Rutas principales                                                                                                                                                                                                                 |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`     | `POST /auth/register`, `/login`, `/logout`, `/refresh`; recuperación de contraseña; `GET /auth/me` y perfil, avatar, verificación y cambio de email y de contraseña; `GET /auth/me/export` (descarga de datos); `DELETE /auth/me` |
+| `books`    | `GET /books`, `GET /books/:id`, `POST /books`, `PATCH /books/:id/ejemplar`, `DELETE /books/:id`; `GET /books/lookup-isbn?isbn=`, `GET /books/search-external?q=`, `GET /books/tags`                                               |
+| `wishlist` | `GET` y `POST /wishlist`, `PATCH` y `DELETE /wishlist/:id`, `POST /wishlist/:id/acquire`                                                                                                                                          |
+| `quotes`   | `GET` y `POST /quotes`, `GET`, `PATCH` y `DELETE /quotes/:id`, `GET /quotes/books`                                                                                                                                                |
+| `stats`    | `GET /stats`                                                                                                                                                                                                                      |
+| Salud      | `GET /` → `{ "message": "pong" }` (sin sesión; útil como Health Check)                                                                                                                                                            |
+
+Las rutas protegidas exigen la cookie de sesión y, las que modifican datos, la cabecera `X-CSRF-Token`. Los errores tienen siempre la forma `{ "error": { "code", "message", "field"? } }`.
 
 ## Tests
 
@@ -110,7 +121,7 @@ En producción la web y la API comparten origen: Netlify reenvía `/api/*` al ba
 
 ## Cómo contribuir
 
-Se trabaja con **Trunk Based Development**: ramas cortas `feature/`, `bugfix/` o `refactor/` desde `main` actualizado, una PR por rama y commits pequeños, atómicos, en inglés e imperativos (máximo 72 caracteres). Cada endpoint lleva su test de integración. Las normas completas están en [`normas-desarrollo.md`](https://github.com/IsaSaete/biblioteca-docs/blob/main/normas-desarrollo.md).
+Se trabaja con **Trunk Based Development**: ramas cortas `feature/`, `bugfix/` o `refactor/` desde `main` actualizado, una PR por rama y commits pequeños, atómicos, en inglés e imperativos (máximo 72 caracteres). Cada endpoint lleva su test de integración.
 
 ---
 
