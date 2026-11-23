@@ -13,6 +13,52 @@ const openLibraryBook = buildExternalBook({
   coverSource: "open_library",
 });
 
+describe("Given a provider that returns raw categories", () => {
+  describe("When the book is looked up by ISBN", () => {
+    it("Then it returns a single genre from the catalog", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", {
+          book: buildExternalBook({
+            categories: ["Fiction", "Fiction / Fantasy / General", "Spain"],
+          }),
+        }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book.categories).toEqual(["Fantasía"]);
+    });
+
+    it("Then it returns no categories when none is a genre", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("open_library", {
+          book: buildExternalBook({
+            categories: ["New York Times bestseller", "Large type books"],
+          }),
+        }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).not.toHaveProperty("categories");
+    });
+  });
+
+  describe("When books are searched by text", () => {
+    it("Then every result carries a single genre from the catalog", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", {
+          results: [buildExternalBook({ categories: ["History"] })],
+        }),
+      ]);
+
+      const books = await service.searchExternal({ q: "historia" });
+
+      expect(books[0]?.categories).toEqual(["Historia"]);
+    });
+  });
+});
+
 describe("Given the ExternalBooksService.lookupByIsbn function", () => {
   describe("When the main provider knows the ISBN", () => {
     it("Then it should return its book and not ask the fallback", async () => {
