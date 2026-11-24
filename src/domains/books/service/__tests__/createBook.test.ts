@@ -140,6 +140,50 @@ describe("Given the BooksService.createBook function", () => {
     );
   });
 
+  describe("When the existing Book has no cover and the new user brings one", () => {
+    it("Then the Book should get that cover", async () => {
+      const {
+        coverUrl: _coverUrl,
+        coverSource: _coverSource,
+        ...withoutCover
+      } = buildCreateBookDto();
+      await BooksService.createBook(newUserId(), withoutCover);
+      const cover = {
+        coverUrl: "https://books.google.com/cover.jpg",
+        coverSource: "google_books" as const,
+      };
+
+      const { book } = await BooksService.createBook(
+        newUserId(),
+        buildCreateBookDto(cover),
+      );
+
+      expect(book).toMatchObject(cover);
+      expect(await Book.countDocuments()).toBe(1);
+      expect(await Book.findOne({ isbn: ISBN_13 })).toMatchObject(cover);
+    });
+  });
+
+  describe("When the existing Book already has a cover", () => {
+    it("Then it should keep it and ignore the new one", async () => {
+      const original = {
+        coverUrl: "https://books.google.com/original.jpg",
+        coverSource: "google_books" as const,
+      };
+      await BooksService.createBook(newUserId(), buildCreateBookDto(original));
+
+      const { book } = await BooksService.createBook(
+        newUserId(),
+        buildCreateBookDto({
+          coverUrl: "https://covers.openlibrary.org/other.jpg",
+          coverSource: "open_library",
+        }),
+      );
+
+      expect(book).toMatchObject(original);
+    });
+  });
+
   describe("When the user already has that Book in their library", () => {
     it("Then it should fail with BOOK_ALREADY_IN_LIBRARY", async () => {
       const userId = newUserId();
