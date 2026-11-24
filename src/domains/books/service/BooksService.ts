@@ -14,6 +14,7 @@ import isDuplicateKeyError from "../utils/isDuplicateKeyError.js";
 import validateCreateBookDto from "../validator/validateCreateBookDto.js";
 import validateUpdateEjemplarDto from "../validator/validateUpdateEjemplarDto.js";
 import validateListLibraryQuery from "../validator/validateListLibraryQuery.js";
+import validateRandomBookQuery from "../validator/validateRandomBookQuery.js";
 import buildSearchPattern, {
   escapeRegex,
 } from "../utils/buildSearchPattern.js";
@@ -349,6 +350,33 @@ const getBook = async (
   return { book: mapBookToDto(book), ejemplar: mapEjemplarToDto(ejemplar) };
 };
 
+// Un libro al azar de la biblioteca de la persona, para el huevo de Pascua de
+// agitar el móvil. Nunca uno prestado (no está en la estantería) ni el que se
+// pide excluir (el último sugerido).
+const getRandomBook = async (
+  userId: string,
+  query: unknown,
+): Promise<LibraryItemDto> => {
+  const { exclude } = validateRandomBookQuery(query);
+  const [ejemplar] = await Ejemplar.aggregate<EjemplarRecord>([
+    {
+      $match: {
+        userId: new Types.ObjectId(userId),
+        loan: { $exists: false },
+        ...(exclude && { bookId: { $ne: new Types.ObjectId(exclude) } }),
+      },
+    },
+    { $sample: { size: 1 } },
+  ]);
+  const book = ejemplar ? await Book.findById(ejemplar.bookId).lean() : null;
+
+  if (!ejemplar || !book) {
+    throw BOOK_NOT_FOUND;
+  }
+
+  return { book: mapBookToDto(book), ejemplar: mapEjemplarToDto(ejemplar) };
+};
+
 const SCALAR_FIELDS = [
   "status",
   "location",
@@ -464,6 +492,7 @@ const BooksService = {
   listLibrary,
   listTags,
   getBook,
+  getRandomBook,
   updateEjemplar,
   deleteBook,
 };
