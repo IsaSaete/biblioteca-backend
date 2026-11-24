@@ -1,4 +1,5 @@
 import { z } from "zod";
+import normalizeSynopsis from "../utils/normalizeSynopsis.js";
 import toIsbn13 from "../utils/toIsbn13.js";
 import { BookProviderError, type BookProvider } from "./BookProvider.js";
 import requestJson, { DEFAULT_PROVIDER_TIMEOUT_MS } from "./requestJson.js";
@@ -70,7 +71,9 @@ const mapVolume = (item: unknown): ExternalBookDto | undefined => {
     ...(info.pageCount && info.pageCount > 0 && { pageCount: info.pageCount }),
     ...(info.language && { language: info.language }),
     ...(coverUrl && { coverUrl, coverSource: "google_books" as const }),
-    ...(info.description && { synopsis: info.description }),
+    ...(info.description && {
+      synopsis: normalizeSynopsis(info.description),
+    }),
     ...(info.categories?.length && { categories: info.categories }),
   };
 };
