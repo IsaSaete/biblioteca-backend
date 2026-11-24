@@ -6,9 +6,9 @@ const MAX_SEARCH_LENGTH = 200;
 
 const searchSchema = z.object({
   q: z
-    .string("Escribe un título o un autor")
+    .string("Escribe un título o un autor/a")
     .trim()
-    .min(1, "Escribe un título o un autor")
+    .min(1, "Escribe un título o un autor/a")
     .max(MAX_SEARCH_LENGTH, "La búsqueda es demasiado larga"),
 });
 

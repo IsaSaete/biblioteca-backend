@@ -21,12 +21,12 @@ export const bookFieldSchemas = {
   ),
   authors: z
     .array(
-      requiredText("El nombre del autor no puede estar vacío").max(
+      requiredText("El nombre del autor/a no puede estar vacío").max(
         FIELD_LIMITS.author,
         messages.author,
       ),
     )
-    .min(1, "Indica al menos un autor")
+    .min(1, "Indica al menos un autor/a")
     .max(FIELD_LIMITS.authors, messages.authors),
   publisher: requiredText("La editorial es obligatoria").max(
     FIELD_LIMITS.publisher,

@@ -22,8 +22,8 @@ const tooLong = (what: string, max: number) =>
 
 export const messages = {
   title: tooLong("El título", FIELD_LIMITS.title),
-  author: tooLong("El nombre del autor", FIELD_LIMITS.author),
-  authors: `Indica como máximo ${FIELD_LIMITS.authors} autores`,
+  author: tooLong("El nombre del autor/a", FIELD_LIMITS.author),
+  authors: `Indica como máximo ${FIELD_LIMITS.authors} autores/as`,
   publisher: tooLong("La editorial", FIELD_LIMITS.publisher),
   language: tooLong("El idioma", FIELD_LIMITS.language),
   synopsis: tooLong("La sinopsis", FIELD_LIMITS.synopsis),
