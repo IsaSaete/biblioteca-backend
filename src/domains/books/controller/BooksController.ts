@@ -79,6 +79,23 @@ const getBook = async (
   }
 };
 
+const getRandomBook = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { book, ejemplar } = await BooksService.getRandomBook(
+      getSessionUserId(req),
+      req.query,
+    );
+
+    res.status(200).json({ book, ejemplar });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateEjemplar = async (
   req: Request<{ id: string }>,
   res: Response,
@@ -116,6 +133,7 @@ const BooksController = {
   listLibrary,
   listTags,
   getBook,
+  getRandomBook,
   updateEjemplar,
   deleteBook,
 };

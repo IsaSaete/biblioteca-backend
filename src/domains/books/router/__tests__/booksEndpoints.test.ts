@@ -801,6 +801,62 @@ describe("Given the DELETE /books/:id endpoint", () => {
   });
 });
 
+describe("Given the GET /books/random endpoint", () => {
+  describe("When the user has books", () => {
+    it("Then it should respond 200 with { book, ejemplar } and not read random as a book id", async () => {
+      const { cookie } = createSessionCookie();
+      await postBook(cookie, buildCreateBookDto());
+
+      const response = await request(app)
+        .get("/books/random")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        book: { title: buildCreateBookDto().title },
+        ejemplar: { status: "pending" },
+      });
+    });
+  });
+
+  describe("When the user has no books", () => {
+    it("Then it should respond 404 BOOK_NOT_FOUND", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/books/random")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("BOOK_NOT_FOUND");
+    });
+  });
+
+  describe("When exclude is not a valid id", () => {
+    it("Then it should respond 400 VALIDATION_ERROR on exclude", async () => {
+      const { cookie } = createSessionCookie();
+
+      const response = await request(app)
+        .get("/books/random?exclude=no-es-un-id")
+        .set("Cookie", cookie);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        field: "exclude",
+      });
+    });
+  });
+
+  describe("When there is no session", () => {
+    it("Then it should respond 401", async () => {
+      const response = await request(app).get("/books/random");
+
+      expect(response.status).toBe(401);
+    });
+  });
+});
+
 describe("Given the GET /books/tags endpoint", () => {
   describe("When the user has tagged and untagged books", () => {
     it("Then it should respond 200 with { items, untaggedCount }, without treating tags as a book id", async () => {
