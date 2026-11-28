@@ -170,6 +170,16 @@ describe("Given the Open Library provider", () => {
       ]);
     });
 
+    it("Then it should ask for the key, or Open Library leaves out the editions", async () => {
+      const fetchFn = fetchReturning(jsonResponse({ docs: [] }));
+      const provider = createOpenLibraryProvider({ fetchFn });
+
+      await provider.search("maria republica", 10);
+
+      const url = fetchFn.mock.calls[0][0] as URL;
+      expect(url.searchParams.get("fields")?.split(",")).toContain("key");
+    });
+
     it("Then it should return the work when none of its editions has a valid ISBN", async () => {
       const provider = createOpenLibraryProvider({
         fetchFn: fetchReturning(
