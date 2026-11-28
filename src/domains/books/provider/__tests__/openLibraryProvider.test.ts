@@ -116,6 +116,81 @@ describe("Given the Open Library provider", () => {
         { title: "Sin portada", authors: [] },
       ]);
     });
+
+    it("Then it should return each edition with its own ISBN-13, publisher, year and cover", async () => {
+      const provider = createOpenLibraryProvider({
+        fetchFn: fetchReturning(
+          jsonResponse({
+            docs: [
+              {
+                title: "María República",
+                author_name: ["Agustin Gomez-Arcos"],
+                editions: {
+                  docs: [
+                    {
+                      publisher: ["Cabaret Voltaire"],
+                      publish_year: [2014],
+                      isbn: ["8494218514", "9788494218514"],
+                    },
+                    {
+                      title: "Maria Republica",
+                      publisher: ["Seuil"],
+                      publish_year: [1983],
+                      isbn: ["9782020065610"],
+                      cover_i: 2132919,
+                    },
+                    { publisher: ["Sin ISBN"] },
+                  ],
+                },
+              },
+            ],
+          }),
+        ),
+      });
+
+      const books = await provider.search("maria republica", 10);
+
+      expect(books).toEqual([
+        {
+          isbn: "9788494218514",
+          title: "María República",
+          authors: ["Agustin Gomez-Arcos"],
+          publisher: "Cabaret Voltaire",
+          publishedYear: 2014,
+        },
+        {
+          isbn: "9782020065610",
+          title: "Maria Republica",
+          authors: ["Agustin Gomez-Arcos"],
+          publisher: "Seuil",
+          publishedYear: 1983,
+          coverUrl: "https://covers.openlibrary.org/b/id/2132919-M.jpg",
+          coverSource: "open_library",
+        },
+      ]);
+    });
+
+    it("Then it should return the work when none of its editions has a valid ISBN", async () => {
+      const provider = createOpenLibraryProvider({
+        fetchFn: fetchReturning(
+          jsonResponse({
+            docs: [
+              {
+                title: "Maria Republica",
+                author_name: ["Agustin GOMEZ-ARCOS"],
+                editions: { docs: [{ publisher: ["Stock"], isbn: ["123"] }] },
+              },
+            ],
+          }),
+        ),
+      });
+
+      const books = await provider.search("maria republica", 10);
+
+      expect(books).toEqual([
+        { title: "Maria Republica", authors: ["Agustin GOMEZ-ARCOS"] },
+      ]);
+    });
   });
 
   describe("When Open Library fails", () => {
