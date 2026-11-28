@@ -170,6 +170,53 @@ const replaceSynopsisInOtherLanguage = async (
   return synopsis ? { ...checked, synopsis } : checked;
 };
 
+// Sin mayúsculas ni tildes: «Maria republica» y «María República» son lo mismo.
+const normalizeText = (text: string): string =>
+  text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+
+// Un mismo libro puede venir de varios proveedores: se reconoce por el ISBN o,
+// si no lo tiene, por título, primer autor/a y año.
+const sameBookKey = (book: ExternalBookDto): string =>
+  book.isbn ??
+  [
+    normalizeText(book.title),
+    normalizeText(book.authors[0] ?? ""),
+    book.publishedYear ?? "",
+  ].join("|");
+
+// Une los resultados de todos los proveedores, en su orden (el principal
+// primero). Si un libro sale en varios, se queda el primero y se completa con
+// lo que traiga el otro.
+const mergeResults = (lists: ExternalBookDto[][]): ExternalBookDto[] => {
+  const merged = new Map<string, ExternalBookDto>();
+
+  for (const book of lists.flat()) {
+    const key = sameBookKey(book);
+    const existing = merged.get(key);
+
+    merged.set(key, existing ? fillGaps(existing, book) : book);
+  }
+
+  return [...merged.values()];
+};
+
+// Primero los que tienen en el título lo que se ha escrito, sin perder el orden
+// de cada grupo.
+const titleMatchesFirst = (
+  books: ExternalBookDto[],
+  text: string,
+): ExternalBookDto[] => {
+  const wanted = normalizeText(text);
+  const matches = (book: ExternalBookDto) =>
+    normalizeText(book.title).includes(wanted);
+
+  return [...books.filter(matches), ...books.filter((book) => !matches(book))];
+};
+
 export interface ExternalBooksService {
   lookupByIsbn(query: unknown): Promise<ExternalBookDto>;
   searchExternal(query: unknown): Promise<ExternalBookDto[]>;
@@ -244,20 +291,44 @@ const createExternalBooksService = (
       );
     },
 
+    // Se consultan todos los proveedores a la vez y se juntan sus resultados:
+    // cada uno conoce ediciones que el otro no. Si algún proveedor falló y no
+    // hay ningún resultado, no se puede afirmar que no existan: es un 502.
     searchExternal: async (query) => {
       const text = validateSearchQuery(query);
 
-      const { result, anyFailed } = await queryProviders(
-        (provider) => provider.search(text, EXTERNAL_SEARCH_LIMIT),
-        (books) => books.length > 0,
-        [] as ExternalBookDto[],
+      const answers = await Promise.allSettled(
+        providers.map((provider) =>
+          provider.search(text, EXTERNAL_SEARCH_LIMIT),
+        ),
       );
 
-      if (result.length === 0 && anyFailed) {
+      const lists: ExternalBookDto[][] = [];
+      let anyFailed = false;
+
+      answers.forEach((answer, index) => {
+        if (answer.status === "fulfilled") {
+          lists.push(answer.value);
+          return;
+        }
+
+        anyFailed = true;
+        logger.warn(
+          {
+            provider: providers[index]?.name,
+            reason: (answer.reason as Error).message,
+          },
+          "Book provider failed",
+        );
+      });
+
+      const results = titleMatchesFirst(mergeResults(lists), text);
+
+      if (results.length === 0 && anyFailed) {
         throw providerUnavailable();
       }
 
-      return result
+      return results
         .slice(0, EXTERNAL_SEARCH_LIMIT)
         .map(withSynopsisInBookLanguage)
         .map(withNormalizedGenre);
