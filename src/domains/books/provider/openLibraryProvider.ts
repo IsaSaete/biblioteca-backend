@@ -178,9 +178,11 @@ const createOpenLibraryProvider = ({
       const url = new URL(`${OPEN_LIBRARY_URL}/search.json`);
       url.searchParams.set("q", query);
       url.searchParams.set("limit", String(limit));
+      // Sin `key` Open Library no devuelve las ediciones (`editions`), aunque se
+      // pidan.
       url.searchParams.set(
         "fields",
-        "title,author_name,cover_i,editions,editions.title,editions.author_name,editions.publisher,editions.publish_year,editions.isbn,editions.cover_i",
+        "key,title,author_name,cover_i,editions,editions.title,editions.author_name,editions.publisher,editions.publish_year,editions.isbn,editions.cover_i",
       );
 
       const body = searchSchema.safeParse(await request(url));
