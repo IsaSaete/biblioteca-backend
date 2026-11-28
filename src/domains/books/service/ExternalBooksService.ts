@@ -8,6 +8,7 @@ import {
 } from "../validator/validateExternalBookQueries.js";
 import type { ExternalBookDto } from "../types/types.js";
 import selectGenre from "../utils/selectGenre.js";
+import synopsisLanguageMatch from "../utils/synopsisLanguage.js";
 
 export const EXTERNAL_SEARCH_LIMIT = 10;
 
@@ -98,6 +99,77 @@ const withNormalizedGenre = (book: ExternalBookDto): ExternalBookDto => {
   return { ...rest, ...(genre && { categories: [genre] }) };
 };
 
+const withoutSynopsis = (book: ExternalBookDto): ExternalBookDto => {
+  const { synopsis, ...rest } = book;
+
+  return synopsis === undefined ? book : rest;
+};
+
+// Si la sinopsis no está en el idioma del libro se descarta: mejor sin sinopsis
+// que con una que no se entiende.
+const withSynopsisInBookLanguage = (book: ExternalBookDto): ExternalBookDto =>
+  book.synopsis &&
+  synopsisLanguageMatch(book.synopsis, book.language) === "mismatch"
+    ? withoutSynopsis(book)
+    : book;
+
+const sameTitle = (a: string, b: string): boolean =>
+  a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// Busca la sinopsis en el idioma del libro entre otras ediciones del mismo
+// título y autor/a. Solo se acepta una confirmada en ese idioma; si ningún
+// proveedor la tiene o fallan, el libro se queda sin sinopsis.
+const findSynopsisInBookLanguage = async (
+  book: ExternalBookDto,
+  providers: BookProvider[],
+): Promise<string | undefined> => {
+  if (!book.language) {
+    return undefined;
+  }
+
+  const query = [book.title, book.authors[0]].filter(Boolean).join(" ");
+
+  for (const provider of providers) {
+    try {
+      const results = await provider.search(query, EXTERNAL_SEARCH_LIMIT, {
+        language: book.language,
+      });
+      const found = results.find(
+        (result) =>
+          result.synopsis &&
+          sameTitle(result.title, book.title) &&
+          synopsisLanguageMatch(result.synopsis, book.language) === "match",
+      );
+
+      if (found?.synopsis) {
+        return found.synopsis;
+      }
+    } catch (error) {
+      logger.warn(
+        { provider: provider.name, reason: (error as Error).message },
+        "Book provider failed while looking for a synopsis",
+      );
+    }
+  }
+
+  return undefined;
+};
+
+const replaceSynopsisInOtherLanguage = async (
+  book: ExternalBookDto,
+  providers: BookProvider[],
+): Promise<ExternalBookDto> => {
+  const checked = withSynopsisInBookLanguage(book);
+
+  if (checked === book) {
+    return book;
+  }
+
+  const synopsis = await findSynopsisInBookLanguage(book, providers);
+
+  return synopsis ? { ...checked, synopsis } : checked;
+};
+
 export interface ExternalBooksService {
   lookupByIsbn(query: unknown): Promise<ExternalBookDto>;
   searchExternal(query: unknown): Promise<ExternalBookDto[]>;
@@ -154,7 +226,12 @@ const createExternalBooksService = (
           isbn,
         );
 
-        return { ...withNormalizedGenre(completed), isbn };
+        const inBookLanguage = await replaceSynopsisInOtherLanguage(
+          completed,
+          providers,
+        );
+
+        return { ...withNormalizedGenre(inBookLanguage), isbn };
       }
 
       if (anyFailed) {
@@ -180,7 +257,10 @@ const createExternalBooksService = (
         throw providerUnavailable();
       }
 
-      return result.slice(0, EXTERNAL_SEARCH_LIMIT).map(withNormalizedGenre);
+      return result
+        .slice(0, EXTERNAL_SEARCH_LIMIT)
+        .map(withSynopsisInBookLanguage)
+        .map(withNormalizedGenre);
     },
   };
 };
