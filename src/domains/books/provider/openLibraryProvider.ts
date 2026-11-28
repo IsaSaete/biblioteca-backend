@@ -1,4 +1,5 @@
 import { z } from "zod";
+import toIsbn13 from "../utils/toIsbn13.js";
 import { BookProviderError, type BookProvider } from "./BookProvider.js";
 import requestJson, { DEFAULT_PROVIDER_TIMEOUT_MS } from "./requestJson.js";
 import type { ExternalBookDto } from "../types/types.js";
@@ -21,16 +22,28 @@ const editionSchema = z.object({
   cover: z.object({ medium: z.string().optional() }).optional(),
 });
 
-// La búsqueda devuelve obras, no ediciones: sin editorial, año ni páginas, que
-// serían los de otra edición.
+// La búsqueda devuelve obras y, dentro de cada una, las ediciones que encajan
+// con lo escrito. Cada edición es un resultado propio, con su ISBN, editorial,
+// año y portada reales, para que el usuario elija la suya. Una obra sin
+// ediciones (o sin ISBN válido en ellas) se devuelve solo con título y autores.
 const searchSchema = z.object({
   docs: z.array(z.unknown()).default([]),
+});
+
+const searchEditionSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  author_name: z.array(z.string()).optional(),
+  publisher: z.array(z.string()).optional(),
+  publish_year: z.array(z.number()).optional(),
+  isbn: z.array(z.string()).optional(),
+  cover_i: z.number().optional(),
 });
 
 const workSchema = z.object({
   title: z.string().trim().min(1),
   author_name: z.array(z.string()).optional(),
   cover_i: z.number().optional(),
+  editions: z.object({ docs: z.array(z.unknown()).default([]) }).optional(),
 });
 
 const coverFromId = (coverId: number): string =>
@@ -62,6 +75,65 @@ const mapEdition = (isbn: string, data: unknown): ExternalBookDto => {
     ...(coverUrl && { coverUrl, coverSource: "open_library" as const }),
     ...(categories?.length && { categories }),
   };
+};
+
+const firstIsbn13 = (isbns: string[] = []): string | undefined =>
+  isbns.map(toIsbn13).find((isbn): isbn is string => isbn !== null);
+
+const mapEditionResult = (
+  work: z.infer<typeof workSchema>,
+  doc: unknown,
+): ExternalBookDto[] => {
+  const edition = searchEditionSchema.safeParse(doc);
+  const isbn = edition.success ? firstIsbn13(edition.data.isbn) : undefined;
+
+  if (!edition.success || !isbn) {
+    return [];
+  }
+
+  const { title, author_name, publisher, publish_year, cover_i } = edition.data;
+  const authors = author_name ?? work.author_name ?? [];
+
+  return [
+    {
+      isbn,
+      title: title ?? work.title,
+      authors,
+      ...(publisher?.[0] && { publisher: publisher[0] }),
+      ...(publish_year?.[0] && { publishedYear: publish_year[0] }),
+      ...(cover_i && {
+        coverUrl: coverFromId(cover_i),
+        coverSource: "open_library" as const,
+      }),
+    },
+  ];
+};
+
+const mapWork = (doc: unknown): ExternalBookDto[] => {
+  const work = workSchema.safeParse(doc);
+
+  if (!work.success) {
+    return [];
+  }
+
+  const editions = (work.data.editions?.docs ?? []).flatMap((edition) =>
+    mapEditionResult(work.data, edition),
+  );
+
+  if (editions.length > 0) {
+    return editions;
+  }
+
+  return [
+    {
+      title: work.data.title,
+      authors: work.data.author_name ?? [],
+      ...(work.data.cover_i && {
+        coverUrl: coverFromId(work.data.cover_i),
+        coverSource: "open_library" as const,
+      }),
+    },
+  ];
 };
 
 export interface OpenLibraryProviderOptions {
@@ -106,7 +178,10 @@ const createOpenLibraryProvider = ({
       const url = new URL(`${OPEN_LIBRARY_URL}/search.json`);
       url.searchParams.set("q", query);
       url.searchParams.set("limit", String(limit));
-      url.searchParams.set("fields", "title,author_name,cover_i");
+      url.searchParams.set(
+        "fields",
+        "title,author_name,cover_i,editions,editions.title,editions.author_name,editions.publisher,editions.publish_year,editions.isbn,editions.cover_i",
+      );
 
       const body = searchSchema.safeParse(await request(url));
 
@@ -114,24 +189,7 @@ const createOpenLibraryProvider = ({
         throw new BookProviderError(PROVIDER_NAME, "respuesta no válida");
       }
 
-      return body.data.docs.flatMap((doc): ExternalBookDto[] => {
-        const work = workSchema.safeParse(doc);
-
-        if (!work.success) {
-          return [];
-        }
-
-        return [
-          {
-            title: work.data.title,
-            authors: work.data.author_name ?? [],
-            ...(work.data.cover_i && {
-              coverUrl: coverFromId(work.data.cover_i),
-              coverSource: "open_library" as const,
-            }),
-          },
-        ];
-      });
+      return body.data.docs.flatMap(mapWork);
     },
   };
 };
