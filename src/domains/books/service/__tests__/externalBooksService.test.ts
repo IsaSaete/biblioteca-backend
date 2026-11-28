@@ -427,7 +427,7 @@ describe("Given the ExternalBooksService.searchExternal function", () => {
   describe("When the main provider returns more than 10 results", () => {
     it("Then it should return at most 10", async () => {
       const results = Array.from({ length: 15 }, (_, index) =>
-        buildExternalBook({ title: `Libro ${index}` }),
+        buildExternalBook({ isbn: undefined, title: `Libro ${index}` }),
       );
       const service = createExternalBooksService([
         buildFakeProvider("google_books", { results }),
@@ -436,6 +436,82 @@ describe("Given the ExternalBooksService.searchExternal function", () => {
       const books = await service.searchExternal({ q: "libro" });
 
       expect(books).toHaveLength(10);
+    });
+  });
+
+  describe("When both providers have results", () => {
+    it("Then it should return the editions of both, without repeating an ISBN", async () => {
+      const mainEdition = buildExternalBook({
+        isbn: "9780306406157",
+        title: "María República",
+        publisher: undefined,
+      });
+      const sameEditionInFallback = buildExternalBook({
+        isbn: "9780306406157",
+        title: "María República",
+        publisher: "Cabaret Voltaire",
+        coverUrl: undefined,
+        coverSource: undefined,
+      });
+      const otherEdition = buildExternalBook({
+        isbn: "9782020065610",
+        title: "Maria Republica",
+        publisher: "Seuil",
+      });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { results: [mainEdition] }),
+        buildFakeProvider("open_library", {
+          results: [sameEditionInFallback, otherEdition],
+        }),
+      ]);
+
+      const books = await service.searchExternal({ q: "maria republica" });
+
+      expect(books.map((book) => book.isbn)).toEqual([
+        "9780306406157",
+        "9782020065610",
+      ]);
+      expect(books[0]).toMatchObject({
+        publisher: "Cabaret Voltaire",
+        coverUrl: mainEdition.coverUrl,
+      });
+    });
+
+    it("Then it should put first the titles that contain the text, ignoring accents and case", async () => {
+      const unrelated = buildExternalBook({
+        isbn: "9780000000002",
+        title: "Historia de la República Mexicana",
+      });
+      const match = buildExternalBook({
+        isbn: "9780000000019",
+        title: "María República",
+      });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { results: [unrelated] }),
+        buildFakeProvider("open_library", { results: [match] }),
+      ]);
+
+      const books = await service.searchExternal({ q: "Maria republica" });
+
+      expect(books.map((book) => book.title)).toEqual([
+        "María República",
+        "Historia de la República Mexicana",
+      ]);
+    });
+
+    it("Then it should keep apart two books without ISBN that differ in year", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", {
+          results: [
+            buildExternalBook({ isbn: undefined, publishedYear: 1976 }),
+            buildExternalBook({ isbn: undefined, publishedYear: 2014 }),
+          ],
+        }),
+      ]);
+
+      const books = await service.searchExternal({ q: "sombra" });
+
+      expect(books).toHaveLength(2);
     });
   });
 
