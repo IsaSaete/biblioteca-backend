@@ -217,6 +217,61 @@ const titleMatchesFirst = (
   return [...books.filter(matches), ...books.filter((book) => !matches(book))];
 };
 
+// Para no gastar la cuota de los proveedores, solo se completa la portada de los
+// primeros resultados.
+const MAX_COVER_LOOKUPS = 5;
+
+// Una edición bien identificada (ISBN, autor/a y editorial) a la que solo le
+// falta la portada: merece la pena pedirla por su ISBN.
+const lacksOnlyCover = (book: ExternalBookDto): boolean =>
+  Boolean(book.isbn) &&
+  book.authors.length > 0 &&
+  Boolean(book.publisher) &&
+  !book.coverUrl;
+
+const findCoverByIsbn = async (
+  book: ExternalBookDto,
+  providers: BookProvider[],
+): Promise<ExternalBookDto> => {
+  for (const provider of providers) {
+    try {
+      const other = book.isbn ? await provider.findByIsbn(book.isbn) : null;
+
+      if (other?.coverUrl && other.coverSource) {
+        return {
+          ...book,
+          coverUrl: other.coverUrl,
+          coverSource: other.coverSource,
+        };
+      }
+    } catch (error) {
+      logger.warn(
+        { provider: provider.name, reason: (error as Error).message },
+        "Book provider failed while looking for a cover",
+      );
+    }
+  }
+
+  return book;
+};
+
+// La búsqueda por título suele traer ediciones sin portada que otro proveedor sí
+// tiene. Se completan las primeras bien identificadas, a la vez.
+const completeCovers = async (
+  books: ExternalBookDto[],
+  providers: BookProvider[],
+): Promise<ExternalBookDto[]> => {
+  const toComplete = new Set(
+    books.filter(lacksOnlyCover).slice(0, MAX_COVER_LOOKUPS),
+  );
+
+  return Promise.all(
+    books.map((book) =>
+      toComplete.has(book) ? findCoverByIsbn(book, providers) : book,
+    ),
+  );
+};
+
 export interface ExternalBooksService {
   lookupByIsbn(query: unknown): Promise<ExternalBookDto>;
   searchExternal(query: unknown): Promise<ExternalBookDto[]>;
@@ -328,10 +383,12 @@ const createExternalBooksService = (
         throw providerUnavailable();
       }
 
-      return results
-        .slice(0, EXTERNAL_SEARCH_LIMIT)
-        .map(withSynopsisInBookLanguage)
-        .map(withNormalizedGenre);
+      const completed = await completeCovers(
+        results.slice(0, EXTERNAL_SEARCH_LIMIT),
+        providers,
+      );
+
+      return completed.map(withSynopsisInBookLanguage).map(withNormalizedGenre);
     },
   };
 };
