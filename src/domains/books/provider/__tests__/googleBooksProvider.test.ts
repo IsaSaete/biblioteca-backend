@@ -96,6 +96,18 @@ describe("Given the Google Books provider", () => {
     });
   });
 
+  describe("When a search asks for a language", () => {
+    it("Then it restricts the results to that language", async () => {
+      const fetchFn = fetchReturning(jsonResponse({ items: [volume] }));
+      const provider = createGoogleBooksProvider({ fetchFn });
+
+      await provider.search("sombra", 10, { language: "es" });
+
+      const url = fetchFn.mock.calls[0][0] as URL;
+      expect(url.searchParams.get("langRestrict")).toBe("es");
+    });
+  });
+
   describe("When a search returns a malformed volume among valid ones", () => {
     it("Then it should skip the malformed one", async () => {
       const provider = createGoogleBooksProvider({

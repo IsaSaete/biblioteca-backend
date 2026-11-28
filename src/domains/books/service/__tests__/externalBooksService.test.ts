@@ -59,6 +59,89 @@ describe("Given a provider that returns raw categories", () => {
   });
 });
 
+const SPANISH_SYNOPSIS =
+  "Esta es la historia de un médico que llegó a un pequeño destacamento del desierto y que, durante años, cuidó de los soldados y de las gentes de la región.";
+const ENGLISH_SYNOPSIS =
+  "This is the story of a doctor who arrived at a small outpost in the desert and who, for years, took care of the soldiers and of the people of the region.";
+
+describe("Given a book whose synopsis is not in the language of the book", () => {
+  describe("When it is looked up by ISBN and another edition has it in the right language", () => {
+    it("Then it returns the synopsis of that edition", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", {
+          book: buildExternalBook({ synopsis: ENGLISH_SYNOPSIS }),
+          results: [buildExternalBook({ synopsis: SPANISH_SYNOPSIS })],
+        }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book.synopsis).toBe(SPANISH_SYNOPSIS);
+    });
+  });
+
+  describe("When it is looked up by ISBN and no edition has it in the right language", () => {
+    it("Then it returns the book without synopsis", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", {
+          book: buildExternalBook({ synopsis: ENGLISH_SYNOPSIS }),
+          results: [buildExternalBook({ synopsis: ENGLISH_SYNOPSIS })],
+        }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).not.toHaveProperty("synopsis");
+    });
+  });
+
+  describe("When the search for another edition fails", () => {
+    it("Then it returns the book without synopsis", async () => {
+      const failingSearch = buildFakeProvider("open_library", {
+        failing: true,
+      });
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", {
+          book: buildExternalBook({ synopsis: ENGLISH_SYNOPSIS }),
+        }),
+        failingSearch,
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book).not.toHaveProperty("synopsis");
+    });
+  });
+
+  describe("When the synopsis is in the language of the book", () => {
+    it("Then it keeps it", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", {
+          book: buildExternalBook({ synopsis: SPANISH_SYNOPSIS }),
+        }),
+      ]);
+
+      const book = await service.lookupByIsbn({ isbn: ISBN_13 });
+
+      expect(book.synopsis).toBe(SPANISH_SYNOPSIS);
+    });
+  });
+
+  describe("When books are searched by text", () => {
+    it("Then it drops the synopsis that is in another language", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", {
+          results: [buildExternalBook({ synopsis: ENGLISH_SYNOPSIS })],
+        }),
+      ]);
+
+      const books = await service.searchExternal({ q: "medico" });
+
+      expect(books[0]).not.toHaveProperty("synopsis");
+    });
+  });
+});
+
 describe("Given the ExternalBooksService.lookupByIsbn function", () => {
   describe("When the main provider knows the ISBN", () => {
     it("Then it should return its book and not ask the fallback", async () => {

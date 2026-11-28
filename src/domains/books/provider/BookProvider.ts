@@ -7,7 +7,12 @@ export interface BookProvider {
   // `null` = el proveedor responde y no conoce el ISBN. Si falla, lanza BookProviderError.
   findByIsbn(isbn: string): Promise<ExternalBookDto | null>;
   // Lista vacía = sin resultados. Si falla, lanza BookProviderError.
-  search(query: string, limit: number): Promise<ExternalBookDto[]>;
+  // `language` (ISO 639-1) pide resultados en ese idioma a los proveedores que lo permiten.
+  search(
+    query: string,
+    limit: number,
+    options?: { language?: string },
+  ): Promise<ExternalBookDto[]>;
 }
 
 // El proveedor no respondió bien (timeout, error HTTP, respuesta ilegible).

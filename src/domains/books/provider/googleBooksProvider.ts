@@ -92,11 +92,16 @@ const createGoogleBooksProvider = ({
   const searchVolumes = async (
     query: string,
     limit: number,
+    options: { language?: string } = {},
   ): Promise<ExternalBookDto[]> => {
     const url = new URL(GOOGLE_BOOKS_URL);
     url.searchParams.set("q", query);
     url.searchParams.set("maxResults", String(limit));
     url.searchParams.set("printType", "books");
+
+    if (options.language) {
+      url.searchParams.set("langRestrict", options.language);
+    }
 
     if (apiKey) {
       url.searchParams.set("key", apiKey);
