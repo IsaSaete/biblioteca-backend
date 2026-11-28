@@ -515,6 +515,73 @@ describe("Given the ExternalBooksService.searchExternal function", () => {
     });
   });
 
+  describe("When a result has ISBN, author and publisher but no cover", () => {
+    const withoutCover = buildExternalBook({
+      coverUrl: undefined,
+      coverSource: undefined,
+    });
+
+    it("Then it should complete the cover from another provider", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("google_books", { book: googleBook }),
+        buildFakeProvider("open_library", { results: [withoutCover] }),
+      ]);
+
+      const books = await service.searchExternal({ q: "sombra" });
+
+      expect(books[0]).toMatchObject({
+        coverUrl: googleBook.coverUrl,
+        coverSource: "google_books",
+      });
+    });
+
+    it("Then it should not look for the cover when the publisher is missing", async () => {
+      const provider = buildFakeProvider("google_books", { book: googleBook });
+      const findByIsbn = jest.spyOn(provider, "findByIsbn");
+      const service = createExternalBooksService([
+        buildFakeProvider("open_library", {
+          results: [{ ...withoutCover, publisher: undefined }],
+        }),
+        provider,
+      ]);
+
+      const books = await service.searchExternal({ q: "sombra" });
+
+      expect(findByIsbn).not.toHaveBeenCalled();
+      expect(books[0]?.coverUrl).toBeUndefined();
+    });
+
+    it("Then it should look for at most 5 covers", async () => {
+      const provider = buildFakeProvider("google_books", { book: googleBook });
+      const findByIsbn = jest.spyOn(provider, "findByIsbn");
+      const results = Array.from({ length: 8 }, (_, index) => ({
+        ...withoutCover,
+        isbn: `978000000000${index}`,
+        title: `Sombra ${index}`,
+      }));
+      const service = createExternalBooksService([
+        buildFakeProvider("open_library", { results }),
+        provider,
+      ]);
+
+      await service.searchExternal({ q: "sombra" });
+
+      expect(findByIsbn).toHaveBeenCalledTimes(5);
+    });
+
+    it("Then it should keep the result as it was when the providers fail", async () => {
+      const service = createExternalBooksService([
+        buildFakeProvider("open_library", { results: [withoutCover] }),
+        buildFakeProvider("google_books", { failing: true }),
+      ]);
+
+      const books = await service.searchExternal({ q: "sombra" });
+
+      expect(books).toHaveLength(1);
+      expect(books[0]?.coverUrl).toBeUndefined();
+    });
+  });
+
   describe("When the main provider has no results but the fallback does", () => {
     it("Then it should return the fallback's results", async () => {
       const service = createExternalBooksService([
